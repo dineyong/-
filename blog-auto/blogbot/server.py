@@ -8,7 +8,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import __version__, config, db, scheduler, style, trends, updater
+from . import __version__, config, db, scheduler, shopconnect, style, trends, updater
 from . import log as _logmod
 from .log import RECENT, log
 
@@ -50,6 +50,7 @@ def state() -> dict:
         "logs": _recent(),
         "style": style.get(),
         "update": updater.get(),
+        "sc": shopconnect.get(), "sc_ready": bool(config.shopping_connect_base()),
         "trends": trends.get(), "trend_cats": trends.CATS, "recon": scheduler.state.get("recon"),
         "old_project": str(old_project() or ""),
         "home": str(config.HOME),
@@ -134,6 +135,22 @@ def handle(path: str, body: dict) -> dict:
         cats = [c for c in body.get("cats", []) if c in trends.CATS] or trends.DEFAULT_CATS
         trends.save(cats=cats, date=None, tried_at=None)        # 분야 바꾸면 다시 모으기
         return {"ok": True, "msg": scheduler.run_trends()}
+    if path == "/api/sc/settings":
+        shopconnect.save(**{k: body[k] for k in ("min_reviews", "min_commission") if k in body})
+        return {"ok": True, "msg": "저장했어요."}
+    if path == "/api/sc/recommend":
+        if not config.shopping_connect_base():
+            return {"ok": False, "msg": "설정에 '쇼핑커넥트 상품 목록 주소'를 먼저 넣어주세요."}
+        return {"ok": True, "msg": scheduler.run_recommend((body.get("keyword") or "").strip() or None)}
+    if path == "/api/sc/add":
+        url = (body.get("url") or "").strip()
+        if not re.match(r"https?://\S+$", url):
+            return {"ok": False, "msg": "발급받은 링크(https://…)를 붙여넣어 주세요."}
+        shopconnect.add_link(str(body.get("id")), url, body.get("memo") or "")
+        return {"ok": True, "msg": "링크 대기열에 넣었어요. 쇼핑글 차례에 이 상품으로 써요."}
+    if path == "/api/sc/skip":
+        shopconnect.skip(str(body.get("id")))
+        return {"ok": True, "msg": "이 상품은 다시 추천하지 않을게요."}
     if path == "/api/recon":
         kw = (body.get("keyword") or "").strip() or (trends.hints(1) or ["물티슈"])[0]
         return {"ok": True, "msg": scheduler.run_recon(kw)}

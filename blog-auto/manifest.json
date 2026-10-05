@@ -1,23 +1,24 @@
 {
- "version": "1.3.4",
- "notes": "쇼핑커넥트 살펴보기: 로그인 계정의 채널로 다시 시도",
+ "version": "1.4.0",
+ "notes": "쇼핑커넥트 추천 상품 (수수료·리뷰 기준, 열기 → 직접 발급 → 붙여넣기)",
  "files": {
-  "blogbot/__init__.py": "51b51682ff7f17ee231aeb0aa8c4f66cb1b7561e42518fb009657c59ffa2cfbe",
+  "blogbot/__init__.py": "133cee375489b8ca3650746f71d1047956286a1b9297d7a8fbf2d90750f70f2d",
   "blogbot/__main__.py": "d93ce8f71095dc4c43cf39b98672e3296bd8cd623a32719b8799d69b87ff4c50",
   "blogbot/ai.py": "626f3f40a6534c8d5f27b61893b1310ae00d260d69dce018197a0924f94a1d8a",
   "blogbot/config.py": "37981c96010a32911271478341e4b5f13189a304dd421a79ed2ea282f910ec96",
   "blogbot/db.py": "33d1f25c018735e8835c65e411db3255c1b57880b899153d60ed102c5ae3149c",
   "blogbot/illustrations.py": "04b000a13e939556cf3fd3dd8331b36ef87defaa102f80fa44c1ae879a8238d1",
   "blogbot/log.py": "38aec39ea1f2f364ca8b0876dc66d2dea14e293d17ed73c442a79b330ea16b19",
-  "blogbot/naver.py": "6561e8faeac738391e3d5ce6d6980a7b8aad875c9676513d13f00f981ccdfcac",
+  "blogbot/naver.py": "18b290b10b75bd1e9b7c91488a28303ed747636348bb7dbfb39e38f7d47d6cd5",
   "blogbot/prompts.py": "5c6f85f3a43650ea07b71081df85ced94ac1ea75f7fe47ef485b9071babbfd3a",
-  "blogbot/scheduler.py": "3db6292c4c4c3462d68ebcd34eeeb38d2bb1fb5a0c11453e1f9a0c649b372a10",
-  "blogbot/server.py": "a04ef49fa8943ee431195ed12c31fd3677b0dcd071840de40168e9be2a37169b",
+  "blogbot/scheduler.py": "2f0b29c5a0c9a8e2282ae3dd8c9636a8cfda392b32f49d8dae579da9329b58b7",
+  "blogbot/server.py": "7fe3f843dd6c73663c8aaed0fffb1b3327cd383cfef2f505a8a69050cf2c321f",
+  "blogbot/shopconnect.py": "3f7c66584a378621ac455dac7d6aa656a57f17d6e71095b7f9fcb83b11ffa35d",
   "blogbot/style.py": "86625672e7058335cf8d073779838d9286fef0e0fb8607459c888ef8d01be452",
   "blogbot/text.py": "fd727cbe4d4aac883f72a18c167d3286d2c53852232eb6f61c6d5da75f539dab",
   "blogbot/trends.py": "8f4caae1ea7733b218f38a7b1340faf3b584817ce9f912fb3535ffefa8195c07",
   "blogbot/updater.py": "651a8112691166207085e1f3796182860538a4a79c5a601765ecd75c6da2bf78",
-  "blogbot/web/index.html": "c9b5fafc0920d84b694905c0bf3dbc6a3c979c598d3e9a21a1cb52ad09487da4",
+  "blogbot/web/index.html": "2059972f0b6951f6d6d4a4729628e93a88485cc0f6c5b7dd52020f19bff4a12a",
   "blogbot/writer.py": "2ce24b6110c2946618c41b94966d29f1bfeeda2ec8c1a9f2317d07bb6f360887"
  }
 }

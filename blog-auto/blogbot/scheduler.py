@@ -14,7 +14,7 @@ import threading
 import time
 import zlib
 
-from . import ai, db, naver, style, trends, writer
+from . import ai, db, naver, shopconnect, style, trends, writer
 from .log import log
 
 KEY = "auto"
@@ -167,6 +167,23 @@ def run_trends() -> str:
     return "인기 키워드를 모으고 있어요 (1분쯤)."
 
 
+def run_recommend(keyword: str | None = None) -> str:
+    def job():
+        state["current"] = "쇼핑커넥트 추천 상품 고르는 중"
+        try:
+            shopconnect.recommend(keyword)
+        except Exception as e:  # noqa: BLE001
+            shopconnect.save(message=f"추천 상품 고르기 실패: {e}")
+            log(f"⚠️ 추천 상품 고르기 실패: {e}")
+        finally:
+            shopconnect.save(tried=dt.date.today().isoformat())
+            state["current"] = None
+    if busy.locked() or not _jobs.empty():
+        return "다른 작업 중이에요. 끝나면 다시 눌러주세요."
+    _jobs.put((job,))
+    return "추천 상품을 고르고 있어요 (1~3분). 상품 정보만 읽고 아무것도 발급하지 않아요."
+
+
 def run_recon(keyword: str) -> str:
     def job():
         state["current"] = "쇼핑커넥트 화면 살펴보는 중"
@@ -263,12 +280,20 @@ def _tick_now(s: dict, now: dt.datetime) -> str:
     return "충분함"
 
 
+def config_ok() -> bool:
+    from . import config
+    return bool(config.shopping_connect_base()) and config.SESSION_FILE.exists()
+
+
 def _loop():
     time.sleep(30)                        # 켜고 30초 뒤 첫 확인
     while True:
         try:
             if trends.due() and not busy.locked() and _jobs.empty():
                 run_trends()               # 하루 한 번 인기 키워드
+                time.sleep(5)
+            elif shopconnect.due() and config_ok() and not busy.locked() and _jobs.empty():
+                run_recommend()            # 하루 한 번 추천 상품 (인기 키워드 모은 뒤)
                 time.sleep(5)
         except Exception as e:  # noqa: BLE001
             log(f"[자동] 인기 키워드 예약 오류: {e}")

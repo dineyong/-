@@ -71,6 +71,10 @@ td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
 .note{color:var(--sub);font-size:12.5px;margin-top:2px}
 .DONE{background:var(--green-bg);color:var(--green)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
+.scgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.sccard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--bg)}
+.btnlink{display:inline-block;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);text-decoration:none;font-size:12.5px;font-weight:600}
+.btnlink:hover{border-color:var(--sub)}
 /* 업데이트 버튼 */
 .upd{display:inline-flex;align-items:center;gap:7px;padding:5px 12px 5px 10px;border-radius:99px;font-size:12.5px;font-weight:600;
      border:1px solid var(--line);background:var(--card);color:var(--sub);transition:background .2s,color .2s,border-color .2s}
@@ -175,13 +179,25 @@ header button{white-space:nowrap}
     <div class="catpick" id="catpick" style="margin:10px 0"></div>
     <div id="trendList" class="row" style="align-items:flex-start;gap:18px"></div>
     <div style="border-top:1px solid var(--line);margin:16px 0 12px"></div>
-    <h2>🔗 쇼핑커넥트 링크 자동 발급 <span class="tag WAITING">준비 중</span></h2>
-    <div class="muted">자동 발급을 만들려면 쇼핑커넥트 화면 구조가 필요해요. 아래 버튼을 누르면 로봇 브라우저가 쇼핑커넥트를 열어 <b>검색까지만</b> 하고 화면을 저장해요 (아무것도 발급하지 않아요). 끝나면 생기는 zip 파일을 Claude에게 보내주세요.</div>
-    <div class="row" style="margin-top:8px">
-      <input id="reconKw" placeholder="검색해볼 키워드 (비우면 인기 1위)" style="max-width:260px">
-      <button onclick="post('/api/recon',{keyword:$('reconKw').value})">쇼핑커넥트 화면 살펴보기</button>
-      <button id="reconOpen" style="display:none" onclick="post('/api/open_recon')">📦 저장된 파일 열기</button>
+    <h2>🛍️ 쇼핑커넥트 추천 상품 <span class="muted" style="font-weight:400" id="scInfo"></span>
+      <span class="spacer"></span><button class="small" onclick="post('/api/sc/recommend')">다시 고르기</button></h2>
+    <div class="muted">인기 키워드로 쇼핑커넥트를 검색해서 <b>수수료 높고 리뷰 많은</b> 상품을 골라둬요 (하루 한 번, 읽기만 해요). 
+      <b>① [쇼핑커넥트에서 열기]</b> → 열린 화면에서 직접 <b>[링크 발급]</b> → <b>② 받은 링크를 옆 칸에 붙여넣기</b> 하면 쇼핑글 대기열에 들어가요.</div>
+    <div class="row" style="margin-top:10px;gap:14px;align-items:flex-end">
+      <div style="width:120px"><label>최소 리뷰 수</label><input id="scRev" type="number" min="0" step="50" onchange="post('/api/sc/settings',{min_reviews:+this.value})"></div>
+      <div style="width:120px"><label>최소 수수료 %</label><input id="scCom" type="number" min="0" max="30" onchange="post('/api/sc/settings',{min_commission:+this.value})"></div>
+      <div style="flex:1;min-width:200px"><label>직접 키워드로 찾기 (선택)</label>
+        <div class="row"><input id="scKw" placeholder="예: 비데" style="max-width:200px"><button onclick="post('/api/sc/recommend',{keyword:$('scKw').value})">찾기</button></div></div>
     </div>
+    <div id="scList" style="margin-top:12px"></div>
+    <details style="margin-top:12px"><summary class="muted" style="cursor:pointer">문제가 생기면: 쇼핑커넥트 화면 살펴보기</summary>
+      <div class="muted" style="margin:6px 0">로봇이 쇼핑커넥트를 열어 검색까지만 하고 화면을 저장해요. 생긴 zip을 Claude에게 보내주세요.</div>
+      <div class="row">
+        <input id="reconKw" placeholder="검색해볼 키워드 (비우면 인기 1위)" style="max-width:260px">
+        <button onclick="post('/api/recon',{keyword:$('reconKw').value})">화면 살펴보기</button>
+        <button id="reconOpen" style="display:none" onclick="post('/api/open_recon')">📦 저장된 파일 열기</button>
+      </div>
+    </details>
   </section>
 
   <!-- 쇼핑 링크 -->
@@ -344,6 +360,7 @@ function render(){
      xs.map(x=>`<span class="chip ${x.hot?"hot":""}" title="${x.prev?`어제 ${x.prev}위`:"새로 들어옴"}" onclick="useKw('${esc(x.kw).replace(/'/g,"")}')"><b>${x.rank}</b>${esc(x.kw)}${x.hot?" 🔥":""}</span>`).join("")}</div></div>`).join("")
      : `<div class="muted">${tr.error? "못 읽었어요: "+esc(tr.error) : "프로그램이 켜지고 잠시 뒤 자동으로 모아요."}</div>`;
   $("reconOpen").style.display = S.recon? "" : "none";
+  drawSC(S.sc||{}, S.sc_ready);
   if(!styleDrawn){ $("styleNotes").value=S.style.notes||""; styleDrawn=true; }
   const sty=S.style;
   $("styleInfo").textContent = `비교한 글 ${sty.learned||0}편 · 고친 글 ${sty.edited||0}편` + (sty.updated_at?` · 마지막 반영 ${when(sty.updated_at)}`:"") + (sty.last_result?` — ${sty.last_result}`:"");
@@ -379,6 +396,28 @@ function drawUpdate(u){
   b.className="upd "+cls; ic.textContent=icon; t.textContent=text; b.title=tip;
 }
 function checkUpdate(){ updLocalBusy=Date.now()+4000; drawUpdate(S.update||{}); post("/api/update/check"); }
+let scDrawn=false;
+function drawSC(sc, ready){
+  if(!scDrawn){ $("scRev").value=sc.min_reviews; $("scCom").value=sc.min_commission; scDrawn=true; }
+  $("scInfo").textContent = sc.updated_at? `· ${when(sc.updated_at)} · ${sc.message||""}` : (sc.message? `· ${sc.message}` : "");
+  const items=sc.items||[];
+  if(!ready){ $("scList").innerHTML=`<div class="notice">설정 카드의 <b>쇼핑커넥트 상품 목록 주소</b>를 먼저 넣어주세요.</div>`; return; }
+  const box=$("scList");
+  if(box.contains(document.activeElement)) return;            // 링크 붙여넣는 중이면 다시 그리지 않음
+  box.innerHTML = items.length? `<div class="scgrid">` + items.map(p=>`<div class="sccard">
+      <div class="muted">'${esc(p.keyword||"")}' 검색</div>
+      <div style="font-weight:700;margin:3px 0 6px;line-height:1.35">${esc(p.name)}</div>
+      <div class="row" style="gap:6px"><span class="tag DONE">수수료 ${p.commission}%</span><span class="tag WAITING">리뷰 ${(p.reviews||0).toLocaleString()}</span><span class="muted">${esc(p.price||"")}</span></div>
+      <div class="row" style="margin-top:10px;gap:6px">
+        <a class="btnlink" href="${esc(p.detail)}" target="_blank">① 쇼핑커넥트에서 열기 ↗</a>
+        <button class="small" onclick="post('/api/sc/skip',{id:'${p.id}'})">빼기</button></div>
+      <div class="row" style="margin-top:8px;gap:6px">
+        <input id="lk${p.id}" placeholder="② 발급받은 링크 붙여넣기" style="flex:1;min-width:140px">
+        <button class="small primary" onclick="addSC('${p.id}')">대기열에 넣기</button></div>
+    </div>`).join("") + `</div>`
+    : `<div class="muted">아직 추천 상품이 없어요. [다시 고르기]를 눌러보세요.</div>`;
+}
+function addSC(id){ const v=$("lk"+id).value.trim(); post('/api/sc/add',{id, url:v}).then(j=>{ if(j&&j.ok) $("lk"+id).value=""; }); }
 function saveCats(){ post("/api/trends/cats",{cats:[...document.querySelectorAll("#catpick input:checked")].map(e=>e.value)}); }
 function useKw(k){ $("topic").value=k; $("topic").scrollIntoView({behavior:"smooth",block:"center"}); toast(`'${k}'를 정보글 주제 칸에 넣었어요`); }
 function setMode(m){ post("/api/auto",{mode:m}); writeMode=m; }

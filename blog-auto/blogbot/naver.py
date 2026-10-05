@@ -854,3 +854,102 @@ def recon_shopping_connect(keyword: str) -> str:
             z.write(f, f.name)
     log(f"📦 저장 완료: {zpath} — 이 파일을 Claude에게 보내주세요")
     return str(zpath)
+
+
+# ─────────────────────────────────────────────
+# 쇼핑커넥트 추천 상품 찾기 — 읽기만 함 (링크 발급 버튼은 누르지 않음, 발급은 사용자가 직접)
+#   목록  : /{공간번호}/affiliate/products
+#   검색  : /{공간번호}/affiliate/products/search?query=…&tab=product  → 카드 a.ProductItem_link (수수료 n%)
+#   상세  : /{공간번호}/affiliate/products/{상품번호}  → 리뷰 n, 수수료 n% (사용자가 여기서 직접 [링크 발급])
+# ─────────────────────────────────────────────
+BC = "https://brandconnect.naver.com"
+
+
+def _space_from(w: "Writer", reqs: list) -> str | None:
+    """설정 주소 → 안 되면 로그인 계정의 공간 번호를 찾아 설정에 저장."""
+    base = config.shopping_connect_base()
+    if base:
+        w.page.goto(base, timeout=30000)
+        w.page.wait_for_timeout(2500)
+        m = re.search(r"/(\d{4,})/affiliate", w.page.url)
+        if m:
+            return m.group(1)
+    if "nid.naver.com" in w.page.url:
+        raise LoginExpired("네이버 로그인이 풀렸어요. 대시보드에서 '네이버 로그인'을 다시 해주세요.")
+    if not base:
+        w.page.goto(BC + "/about/creator", timeout=30000)
+        w.page.wait_for_timeout(2500)
+    for sp in dict.fromkeys(re.findall(r"creator-spaces/(\d{6,})", "\n".join(reqs))):
+        w.page.goto(f"{BC}/{sp}/affiliate/products", timeout=30000)
+        w.page.wait_for_timeout(2500)
+        if f"/{sp}/affiliate" in w.page.url:
+            config.save({"SHOPPING_CONNECT_URL": f"{BC}/{sp}/affiliate/products"})
+            log(f"   🔗 이 계정의 쇼핑커넥트 공간을 찾아 설정에 저장했어요 ({sp})")
+            return sp
+    raise StopError("쇼핑커넥트 상품 화면을 열 수 없어요. 이 네이버 계정이 쇼핑커넥트에 승인됐는지 확인해 주세요.")
+
+
+def _num(s: str) -> int:
+    return int(re.sub(r"\D", "", s) or 0)
+
+
+class ShoppingConnect:
+    """로봇 브라우저 한 번 열어서 상품 검색 결과·상세(리뷰 수)를 읽기만 함."""
+
+    def __init__(self):
+        self.w = Writer()
+        self.reqs: list[str] = []
+
+        def on_req(r):
+            if "brandconnect" in r.url:
+                self.reqs.append(r.url)
+
+        self.w.page.on("request", on_req)
+        self.space = None
+
+    def close(self):
+        self.w.close()
+
+    def open(self):
+        self.space = _space_from(self.w, self.reqs)
+        return self.space
+
+    def search(self, keyword: str, limit: int = 20) -> list[dict]:
+        from urllib.parse import quote
+        self.w.check()
+        self.w.page.goto(f"{BC}/{self.space}/affiliate/products/search?query={quote(keyword)}&tab=product", timeout=30000)
+        try:
+            self.w.page.wait_for_selector('a[href*="/affiliate/products/"]', timeout=15000)
+        except Exception:
+            return []
+        self.w.page.wait_for_timeout(1500)
+        cards = self.w.page.evaluate("""() => Array.from(document.querySelectorAll('a[href*="/affiliate/products/"]'))
+            .map(a => ({href: a.href, text: (a.innerText || '').replace(/\\s+/g, ' ').trim()}))""")
+        out, seen = [], set()
+        for c in cards:
+            m = re.search(r"/affiliate/products/(\d{6,})(?:[/?#]|$)", c["href"])
+            t = c["text"]
+            if not m or m.group(1) in seen or "수수료" not in t:
+                continue
+            seen.add(m.group(1))
+            name = re.split(r"할인가\s*[\d,]+\s*원|판매가\s*[\d,]+\s*원", t)[-1].strip()
+            price = re.search(r"할인가\s*([\d,]+)\s*원", t) or re.search(r"판매가\s*([\d,]+)\s*원", t)
+            out.append({"id": m.group(1), "name": name[:80], "commission": _num((re.search(r"수수료\s*(\d+)\s*%", t) or [0, "0"])[1]),
+                        "price": price.group(1) + "원" if price else "", "keyword": keyword,
+                        "detail": f"{BC}/{self.space}/affiliate/products/{m.group(1)}"})
+            if len(out) >= limit:
+                break
+        return out
+
+    def reviews(self, product: dict) -> int:
+        self.w.check()
+        self.w.page.goto(product["detail"], timeout=30000)
+        try:
+            self.w.page.wait_for_selector('button:has-text("링크 발급")', timeout=15000)
+        except Exception:
+            pass
+        self.w.page.wait_for_timeout(800)
+        t = self.w.page.evaluate("""() => { const e = document.querySelector('[class*="review_item"]');
+                                            return e ? e.innerText : ''; }""") or ""
+        product["reviews"] = _num(t) if "리뷰" in t else 0
+        return product["reviews"]
