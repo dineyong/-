@@ -87,6 +87,16 @@
 - DB: posts에 mode·note·body·learned 칸 추가 (예전 DB는 켤 때 ALTER TABLE로 자동 추가)
 - 검증: 3.9 컴파일, 옛 DB 이전, 완료로 표시, 즉시 모드 시간대 판정, 두 모드 글쓰기 흐름, 가짜 RSS/본문으로 학습, 대시보드 화면(어두운 모드) 확인. 화면 JS에서 변수 이름 겹침(st) 오류를 스크린샷으로 발견해 고침
 
+## v1.2.0 (2026-10-05) — 자동 업데이트 (zip 다운로드 졸업)
+- 창고: GitHub 공개 저장소 **dineyong/-** 의 `blog-auto/` (main). 앱은 `https://raw.githubusercontent.com/dineyong/-/main/blog-auto/manifest.json`을 1시간마다(켜고 90초 뒤 첫 확인) 확인
+- manifest.json = {version, notes, files: {경로: sha256}} → 파일마다 받아 sha256 확인 → `~/BlogAuto/app.new` → `app`→`app.prev`, `app.new`→`app` → 종료코드 3
+- 실행기: `~/BlogAuto/app` 이 있으면 그 코드로 실행(PYTHONPATH), 코드 3이면 1초 뒤 바로 재시작. 새 코드가 60초 안에 3번 꺼지면 `app.bad`로 빼고 `app.prev`(없으면 앱 안 코드)로 되돌림. updater는 app.bad 와 같은 버전은 다시 안 받음
+- 글 쓰는 중이면 적용 안 하고 다음 확인 때. 적용 순간엔 작업 잠금(busy)을 쥔 채 종료 → 그 사이 새 글 시작 안 됨
+- 새 코드는 앱 묶음 밖(~/BlogAuto)에 받으므로 맥 Gatekeeper 경고 없음. 대시보드 상단 버전 글자를 누르면 즉시 확인, 버전이 바뀌면 화면 자동 새로고침
+- 한계: 실행기(launcher.sh)·파이썬 패키지(pip) 변경은 자동 업데이트로 못 함 → 그때만 zip
+- **배포 방법 (다음 작업자용)**: ① blogbot/__init__.py 버전 올리기 ② `python3 -B mac/release.py /home/claude/- "바뀐 점"` (저장소 클론 경로) ③ 저장소 commit & push. 버전이 같거나 낮으면 앱이 안 받음. pycache가 남아 있으면 버전이 옛날로 읽힐 수 있어 `-B`·pycache 삭제
+- 검증: 로컬 file:// 창고로 적용·해시 위조 거부·작성 중 대기, 가짜 홈에서 실행기까지 1.2.0→1.2.1 자동 교체 후 재시작 확인. GitHub 푸시는 사용자가 Claude GitHub 앱 설치 후 성공(저장소 공개, 키·로그인은 올라가지 않음)
+
 ## 아직 실제 네이버에서 확인 못 한 것
 - 즉시 발행 실제 1회, 말투 학습의 RSS·모바일 본문 읽기 (맥에서)
 - 첫 실행 pip/chromium 설치 (맥 실제 환경)
