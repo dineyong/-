@@ -22,8 +22,12 @@ def clean_for_editor(text: str) -> str:
 _KEEP = re.compile(r"^(\s*$|[#📌✔✅💚🔎👇💰🎯⚠🤔📷※(]|[①②③④⑤⑥⑦⑧⑨]|https?://|제품명|가격|\d+\.|-\s)")
 
 
+# 여기서 끊으면 자연스러운 말끝 (쉼표·연결 어미·조사). "들어갈 / 때마다"처럼 꾸미는 말 뒤에서는 안 끊음
+_GOOD_END = re.compile(r"(,|요|고|서|데|면|며|니까|지만|는데|면서|거든요|라서|해서|어서|아서|을|를|에|에서|으로|로|도|까지|부터|만|과|와|랑|께)$")
+
+
 def blog_lines(text: str) -> str:
-    """문장마다 줄을 바꾸고, 긴 문장은 14~22자 근처 띄어쓰기에서 끊는다."""
+    """문장마다 줄을 바꾸고, 긴 문장은 14~24자 근처의 자연스러운 말끝에서 끊는다."""
     out: list[str] = []
     for raw in text.split("\n"):
         line = raw.strip()
@@ -34,14 +38,17 @@ def blog_lines(text: str) -> str:
             if len(sen) <= 24:
                 out.append(sen)
                 continue
-            cur = ""
-            for w in sen.split(" "):
-                nxt = f"{cur} {w}" if cur else w
-                if len(cur) >= 14 and len(nxt) > 22:
+            words, cur = sen.split(" "), ""
+            for i, w in enumerate(words):
+                cur = f"{cur} {w}" if cur else w
+                rest = " ".join(words[i + 1:])
+                if not rest:
+                    break
+                nxt_len = len(cur) + 1 + len(words[i + 1])
+                # 14자 넘었고 말끝이 자연스러우면 끊기 / 너무 길어지면(28자) 어쩔 수 없이 끊기
+                if (len(cur) >= 12 and _GOOD_END.search(w) and len(rest) >= 6) or nxt_len > 28:
                     out.append(cur)
-                    cur = w
-                else:
-                    cur = nxt
+                    cur = ""
             if cur:
                 out.append(cur)
     return re.sub(r"\n{3,}", "\n\n", "\n".join(out))

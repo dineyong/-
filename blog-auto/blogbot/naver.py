@@ -186,7 +186,8 @@ class Writer:
         name = ""
         og = page.query_selector('meta[property="og:title"]')
         if og:
-            name = (og.get_attribute("content") or "").split(":")[0].split("-")[0].strip()
+            # " : 스토어이름" 만 떼고, 모델명 하이픈(BD-ECS3-01SB)은 살림
+            name = re.split(r"\s+[:|]\s+", og.get_attribute("content") or "")[0].strip()
         name = first_text(["._3oDjSvLwEZ", ".product_title", "h2._22kNQuEXmb", '[class*="product_title"]',
                            '[class*="ProductName"]'], lambda t: len(t) > 3) or name or page.title().split(":")[0].strip()
         desc = ""
@@ -201,6 +202,31 @@ class Writer:
         price = first_text(["._1LY7DqCnwR", ".total_price", '[class*="price"]:not([class*="original"])'], lambda t: "원" in t)
         original = first_text(["del", "strike", '[class*="original"]', "._2DywKu0J_Y", ".price_del"],
                               lambda t: "원" in t or bool(re.search(r"[\d,]+", t)))
+        # 할인가를 확실히: 구조화 데이터(JSON-LD offers.price / meta 가격)와 화면의 '원' 금액들을 같이 봄
+        try:
+            nums = page.evaluate(r"""() => {
+              const out = {ld: [], meta: [], shown: []};
+              document.querySelectorAll('script[type="application/ld+json"]').forEach(s => {
+                try { const j = JSON.parse(s.textContent); const arr = Array.isArray(j) ? j : [j];
+                  arr.forEach(o => { const of = o && (o.offers || (o['@graph']||[]).map(g=>g.offers).find(Boolean));
+                    [].concat(of || []).forEach(x => x && x.price && out.ld.push(+x.price)); }); } catch(e) {}
+              });
+              document.querySelectorAll('meta[property*="price:amount"], meta[itemprop="price"]').forEach(m => out.meta.push(+String(m.content).replace(/[^\d.]/g,'')));
+              document.querySelectorAll('[class*="price"], del, strike').forEach(e => {
+                const t = (e.innerText||'').trim(); const m = t.match(/^([\d,]{3,})\s*원$/); if (m) out.shown.push(+m[1].replace(/,/g,''));
+              });
+              return out; }""")
+            sale = next((x for x in (nums.get("ld") or []) + (nums.get("meta") or []) if x and x > 100), None)
+            shown = sorted({int(x) for x in nums.get("shown") or [] if x and x > 100})
+            won = lambda v: f"{int(v):,}원"  # noqa: E731
+            if sale:
+                price = won(sale)
+                if shown and shown[-1] > sale:
+                    original = won(shown[-1])
+            elif len(shown) >= 2:
+                price, original = won(shown[0]), won(shown[-1])
+        except Exception:
+            pass
         disc = first_text(['[class*="discount"]', "._2pgHN-ntx6", ".discount_rate", '[class*="percent"]'], lambda t: "%" in t)
         disc = (re.search(r"\d+%", disc) or [disc])[0] if disc else ""
         delivery = first_text(['[class*="delivery"]', '[class*="shipping"]', "._2OAJPEG1R8"],

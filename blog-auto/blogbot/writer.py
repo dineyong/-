@@ -83,6 +83,32 @@ def _plan(pid: int, per_day: int, mode: str, title: str, sections: list, account
 # ─────────────────────────────────────────────
 # 정보글
 # ─────────────────────────────────────────────
+
+def _proofread(title: str, sections: list[str]) -> tuple[str, list[str]]:
+    """오타 교정 한 번 더. 섹션 수가 달라지거나 너무 많이 바뀌면 원래 글을 씀."""
+    import difflib
+    try:
+        s, u = prompts.proofread(title, sections)
+        d = ai.generate_json(s, u, lambda d: isinstance(d.get("sections"), list) and len(d["sections"]) == len(sections), tries=1)
+        new = [str(x) for x in d["sections"]]
+        if len(new) != len(sections):
+            return title, sections
+        for a, b in zip(sections, new):
+            if difflib.SequenceMatcher(None, a, b).ratio() < 0.85:   # 다시 쓴 수준이면 버림
+                log("   ✏️ 교정 결과가 원문과 너무 달라서 원래 글로 씀")
+                return title, sections
+        t2 = str(d.get("title") or title).strip()
+        if difflib.SequenceMatcher(None, title, t2).ratio() < 0.8:
+            t2 = title
+        fixes = [str(x) for x in (d.get("fixes") or []) if str(x).strip()]
+        if fixes:
+            log(f"   ✏️ 오타 교정 {len(fixes)}곳: {', '.join(fixes[:5])}")
+        return t2, new
+    except Exception as e:  # noqa: BLE001
+        log(f"   ✏️ 오타 교정을 건너뜀: {e}")
+        return title, sections
+
+
 def pick_topic() -> str:
     used = [r["title"] for r in db.q("SELECT title FROM posts WHERE title IS NOT NULL ORDER BY id DESC LIMIT 40")]
     prods = [r["product_name"] for r in db.q(
@@ -104,7 +130,9 @@ def write_info(pid: int, per_day: int, mode: str = "schedule", account: int = 1)
     s += style.block()          # 주인이 고친 글에서 배운 말투
     data = ai.generate_json(s, u, lambda d: isinstance(d.get("sections"), list) and len(d["sections"]) >= 5)
     title = text.clean_for_editor(str(data.get("title") or topic)).strip()
-    sections = text.tidy(data["sections"])
+    title, raw = _proofread(title, [str(x) for x in data["sections"]])
+    title = text.clean_for_editor(title).strip()
+    sections = text.tidy(raw)
     tags = text.tags(data.get("hashtags"))
     st = data.get("strategy") or {}
     if st:
@@ -159,7 +187,9 @@ def write_shop(pid: int, link_id: int, per_day: int, mode: str = "schedule", acc
         s += style.block()
         data = ai.generate_json(s, u, lambda d: isinstance(d.get("sections"), list) and len(d["sections"]) >= 5)
         title = text.clean_for_editor(str(data.get("title") or p["name"])).strip()
-        sections = text.tidy(data["sections"])
+        title, raw = _proofread(title, [str(x) for x in data["sections"]])
+        title = text.clean_for_editor(title).strip()
+        sections = text.tidy(raw)
         if any("[구매링크]" in x for x in sections):
             sections = [x.replace("[구매링크]", link["url"]) for x in sections]
         else:
