@@ -1,0 +1,22 @@
+{
+ "version": "1.2.0",
+ "notes": "자동 업데이트 기능 추가 (이제부터 새 버전은 저절로 받아요)",
+ "files": {
+  "blogbot/__init__.py": "adca9bdb846001c85cd786b1ea9f4752400b0d364a168b03cc5189dfdc5ee3cf",
+  "blogbot/__main__.py": "cfeadbdcfb4bbcbbccb3fc58ea7300b87f5ae26676a069c598709da59e1724e1",
+  "blogbot/ai.py": "626f3f40a6534c8d5f27b61893b1310ae00d260d69dce018197a0924f94a1d8a",
+  "blogbot/config.py": "3c111e5893e43cabaaa1f7928fef906c5c22b8c45f51e1e676d1229dd13bda26",
+  "blogbot/db.py": "33d1f25c018735e8835c65e411db3255c1b57880b899153d60ed102c5ae3149c",
+  "blogbot/illustrations.py": "04b000a13e939556cf3fd3dd8331b36ef87defaa102f80fa44c1ae879a8238d1",
+  "blogbot/log.py": "38aec39ea1f2f364ca8b0876dc66d2dea14e293d17ed73c442a79b330ea16b19",
+  "blogbot/naver.py": "ecbc93a3117e6f3b28f4ae8283033dc3e38e6e7514dec20ef9aa5376b04199a8",
+  "blogbot/prompts.py": "9733e5ff29eff1081116f74477eb34b7f4b7efefb09a8f20f4bf054d3e737b33",
+  "blogbot/scheduler.py": "db4bfc3f665b1d3f28096b0283e72b91cd17cc13bafab932ee24a4f66ee1a08a",
+  "blogbot/server.py": "6e10768a01a89fcd2a3a64b8c07608a245e6b10c801a0dc981defac64704e823",
+  "blogbot/style.py": "86625672e7058335cf8d073779838d9286fef0e0fb8607459c888ef8d01be452",
+  "blogbot/text.py": "fd727cbe4d4aac883f72a18c167d3286d2c53852232eb6f61c6d5da75f539dab",
+  "blogbot/updater.py": "97a7abe809f654908facb31ad97525074e3e7ff761a9abcc5a24d0b9d3fe638d",
+  "blogbot/web/index.html": "37dcd1c9b6c5179923b206598f94fb5c93ba1ef519fcd52ed9613b5f6066650b",
+  "blogbot/writer.py": "3db5b7d82709c0824fab342d619ee759b6ebc49b2e49671adbdaca8cb71ff836"
+ }
+}
