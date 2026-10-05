@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import datetime as dt
 import random
 import re
 
@@ -323,4 +324,31 @@ def proofread(title: str, sections: list[str]) -> tuple[str, str]:
 - 섹션 개수와 순서는 반드시 그대로
 - JSON만 출력: {"title": "...", "sections": ["...", ...], "fixes": ["고친 것 짧게", ...]}"""
     user = _json.dumps({"title": title, "sections": sections}, ensure_ascii=False)
+    return system, user
+
+
+def shop_keywords(blog_topic: str, cats: list[str], trending: list[str], avoid: list[str]) -> tuple[str, str]:
+    """쇼핑커넥트에서 검색할 상품 키워드 추천."""
+    system = ("당신은 네이버 블로그 쇼핑커넥트 글감을 고르는 담당자입니다. 블로그 주제와 계절, 실제 쇼핑 검색 수요를 보고 "
+              "글 한 편으로 소개하기 좋은 상품 키워드를 고릅니다.")
+    today = dt.date.today()
+    user = f"""블로그 주제: {blog_topic}
+오늘: {today.isoformat()} ({today.month}월)
+관심 분야: {', '.join(cats) or '생활/건강'}
+
+요즘 네이버 쇼핑 인기 검색어 (참고):
+- {chr(10).join('- ' + x for x in trending)[2:] if trending else '(없음)'}
+
+이미 썼거나 빼기로 한 키워드 (다시 내지 말 것):
+- {', '.join(avoid) or '(없음)'}
+
+조건:
+- 쇼핑커넥트 상품 검색창에 넣을 키워드 8개 (예: "전기요 1인용", "욕실 발매트 규조토", "무선 핸디 청소기")
+- 상품 종류 + 용도/특징 1개 정도의 2~4단어. 브랜드·모델명 넣지 않기
+- 지금 시기({today.month}월)에 실제로 사는 물건, 블로그 주제와 어울리는 생활용품 위주
+- 위 인기 검색어와 겹치지 않는 것도 섞기 (비슷한 다른 상품, 같이 사는 상품, 다가오는 계절 상품)
+- 의약품·건강기능식품 효능, 성인용품, 고가 가전(100만원 이상)은 피하기
+- why에는 왜 지금 좋은지 15자 안팎으로
+
+JSON만 출력: {{"keywords": [{{"kw": "키워드", "why": "이유"}}, ...]}}"""
     return system, user

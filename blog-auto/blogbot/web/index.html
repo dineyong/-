@@ -175,11 +175,26 @@ tr:last-child td{border-bottom:0}
 .kw .rk{color:var(--faint);font-weight:800;text-align:center}
 .kw .nm{font-weight:700}
 .kw .done{grid-column:4/6}
+.kw .x{border:0;background:none;color:var(--faint);font-size:15px;cursor:pointer;padding:2px 6px;border-radius:6px}
+.kw .x:hover{color:var(--ink);background:var(--sunk)}
+.kw .src{display:inline-block;font-size:11px;font-weight:700;border-radius:5px;padding:0 6px;background:var(--sunk);color:var(--sub)}
+.kwtools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 4px}
+.kwtools input{flex:1 1 220px;max-width:340px}
+.kwempty{text-align:center;padding:22px 10px;color:var(--sub)}
+.kwempty b{display:block;color:var(--ink);font-size:15px;margin-bottom:6px}
+.kwempty .row{justify-content:center;margin-top:12px;gap:8px}
+.kwdone{margin-top:14px;border-top:1px dashed var(--line);padding-top:12px}
+.kwdone h3{font-size:13px;color:var(--sub);margin:0 0 8px;font-weight:700}
+.kwdone .it{display:flex;gap:8px;align-items:center;padding:4px 0;font-size:13.5px;flex-wrap:wrap}
+.kwdone .it .nm{font-weight:700}
 @media (max-width:860px){
   .flow{grid-template-columns:1fr 1fr}
   .kw{grid-template-columns:24px 1fr auto;}
   .kw input,.kw .done{grid-column:2/4}
   .kw .acts{grid-column:2/4}
+  .kwhead{flex-wrap:wrap;row-gap:6px}
+  .kwhead #trendInfo{order:9;flex-basis:100%;font-size:12.5px}
+  .kwtools input{max-width:none}
 }
 
 /* ── 기록 ── */
@@ -339,15 +354,24 @@ details summary{cursor:pointer;color:var(--sub);font-size:13.5px;font-weight:600
       <div class="accbar" id="accShop"></div>
 
       <div class="panel">
-        <h2>오늘의 쇼핑 키워드 <span class="muted" style="font-weight:500" id="trendInfo"></span><span class="spacer"></span>
+        <h2 class="kwhead"><span style="white-space:nowrap">쇼핑 키워드</span> <span class="muted" style="font-weight:500" id="trendInfo"></span><span class="spacer"></span>
+          <button class="btn sm" id="kwSuggestBtn" onclick="kwSuggest()">💡 AI 추천 받기</button>
           <button class="btn sm ghost" onclick="post('/api/trends/refresh')">다시 모으기</button></h2>
         <div class="flow">
           <div><b>1</b>키워드 수집<small>매일 자동</small></div>
-          <div><b>2</b>여기서 확인<small>골라 쓰기 좋은 6개</small></div>
+          <div><b>2</b>여기서 확인<small>안 쓴 키워드 6개씩</small></div>
           <div><b>3</b>[링크 발행하기]<small>쇼핑커넥트에서 직접 발급</small></div>
           <div><b>4</b>링크 넣고 [글쓰기]<small>빈 시간에 예약</small></div>
         </div>
+        <div class="kwtools">
+          <input id="kwAdd" placeholder="키워드 직접 넣기 (쉼표로 여러 개)" onkeydown="if(event.key==='Enter')kwAdd()">
+          <button class="btn sm" onclick="kwAdd()">넣기</button>
+          <span class="spacer"></span>
+          <span class="muted" id="kwCount"></span>
+          <button class="btn sm ghost" id="kwMoreBtn" onclick="kwMore()">다른 키워드 보기 ↻</button>
+        </div>
         <div id="kwFlow"></div>
+        <div id="kwDone"></div>
         <details style="margin-top:12px"><summary>전체 키워드 보기</summary>
           <div id="trendList" class="tcols" style="margin-top:10px"></div></details>
         <details style="margin-top:8px"><summary>분야 고르기</summary>
@@ -747,39 +771,71 @@ async function pasteSC(id){
 function addSC(id){ const v=$("lk"+id).value.trim(); post('/api/sc/add',{id, url:v, account: curAcc}).then(j=>{ if(j&&j.ok) $("lk"+id).value=""; }); }
 /* ── 쇼핑 키워드: 확인 → 링크 발행하기 → 링크 넣고 글쓰기 ── */
 function scBase(){ return (acc(curAcc)||{}).sc_base || ""; }
-function drawKwFlow(tr){
+let kwPage=0;
+function kwCandidates(tr){
+  const skip=tr.skip||{}, used=new Set((S.kw_links||[]).filter(l=>l.account===curAcc).map(l=>l.keyword)), seen=new Set();
+  const extra=(tr.extra||[]).map(x=>({kw:x.kw, src:x.src, note:x.why||(x.src==="me"?"직접 넣은 키워드":"AI 추천")}));
+  const top=[...(tr.items||[])].sort((x,y)=>(y.hot-x.hot)||(x.rank-y.rank))
+     .map(x=>({kw:x.kw, rank:x.rank, hot:x.hot, note:`${x.cat_name}${x.prev?` · 어제 ${x.prev}위`:""}`}));
+  return [...extra, ...top].filter(x=>!skip[x.kw] && !used.has(x.kw) && !seen.has(x.kw) && seen.add(x.kw));
+}
+function drawKwFlow(tr, force){
   const box=$("kwFlow");
-  if(box.contains(document.activeElement) || [...box.querySelectorAll("input")].some(i=>i.value)) return;   // 붙여넣는 중이면 그대로
+  const sb=$("kwSuggestBtn"); sb.disabled=!!tr.suggesting; sb.textContent = tr.suggesting? "💡 고르는 중…" : "💡 AI 추천 받기";
+  drawKwDone();
+  if(!force && (box.contains(document.activeElement) || [...box.querySelectorAll("input")].some(i=>i.value))) return;   // 붙여넣는 중이면 그대로
   const base=scBase();
   $("scOpenAcc").href = base || "https://brandconnect.naver.com/";
-  const seen=new Set(), top=[...(tr.items||[])].sort((x,y)=>(y.hot-x.hot)||(x.rank-y.rank)).filter(x=>!seen.has(x.kw)&&seen.add(x.kw)).slice(0,6);
-  if(!top.length){ box.innerHTML=`<div class="muted">${tr.error? "키워드를 못 읽었어요: "+esc(tr.error)+" — [다시 모으기]를 눌러보세요." : "곧 자동으로 모아요. 바로 보려면 [다시 모으기]를 눌러주세요."}</div>`; return; }
-  const today=new Date().toISOString().slice(0,10);
+  const all=kwCandidates(tr), per=6, pages=Math.max(1, Math.ceil(all.length/per));
+  if(kwPage>=pages) kwPage=0;
+  const list=all.slice(kwPage*per, kwPage*per+per);
+  const fail = (tr.suggest_msg||"").startsWith("추천 실패")? ` · ${tr.suggest_msg}` : "";
+  $("kwCount").textContent = (all.length? `남은 키워드 ${all.length}개` + (pages>1? ` · ${kwPage+1}/${pages}쪽`:"") : "") + fail;
+  $("kwMoreBtn").style.display = pages>1? "" : "none";
+  const nSkip=Object.keys(tr.skip||{}).length;
+  if(!list.length){
+    if(!(tr.items||[]).length && !(tr.extra||[]).length){
+      box.innerHTML=`<div class="muted">${tr.error? "키워드를 못 읽었어요: "+esc(tr.error)+" — [다시 모으기]를 눌러보세요." : "곧 자동으로 모아요. 바로 보려면 [다시 모으기]를 눌러주세요."}</div>`; return;
+    }
+    box.innerHTML=`<div class="kwempty"><b>모은 키워드를 다 썼어요 👏</b>
+      다른 키워드로 쓰려면 아래 중 하나를 골라주세요. 위 칸에 직접 넣어도 돼요.
+      <div class="row"><button class="btn sm primary" onclick="kwSuggest()" ${tr.suggesting?"disabled":""}>💡 AI 추천 받기</button>
+      <button class="btn sm" onclick="openCats()">분야 늘리기</button>
+      ${nSkip? `<button class="btn sm ghost" onclick="post('/api/kw/unskip')">뺀 키워드 다시 보기 (${nSkip})</button>`:""}</div></div>`;
+    return;
+  }
   box.innerHTML = (base? "" : `<div class="notice">설정 › 블로그 계정에 이 계정의 <b>쇼핑커넥트 주소</b>를 넣으면 [링크 발행하기]가 바로 검색 화면으로 열려요.</div>`) +
-    top.map((x,i)=>{
+    list.map((x,i)=>{
       const href = base? `${base}/search?query=${encodeURIComponent(x.kw)}&tab=product` : "https://brandconnect.naver.com/";
-      const used = S.links.filter(l=>l.account===curAcc && l.keyword===x.kw).sort((a,b)=>b.id-a.id)[0];
-      let tail;
-      if(used){
-        const st = used.post_status==="SCHEDULED"||used.post_status==="PUBLISHED" ? ["t-live",`글 예약됨 · ${when(used.post_at)}`]
-                 : used.post_status==="WRITING" ? ["t-blue","글 쓰는 중"] : used.status==="FAILED" ? ["t-red","글쓰기 실패"] : ["t-grey","링크 넣음 · 대기열"];
-        tail=`<div class="done"><span class="tag ${st[0]}">${st[1]}</span> ${used.post_title?`<span class="muted">${esc(used.post_title)}</span>`:""}</div>`;
-      } else {
-        tail=`<input id="kwl${i}" placeholder="④ 발급한 링크 붙여넣기">
-          <div class="row acts" style="gap:6px;flex-wrap:nowrap"><button class="btn sm primary" onclick="kwLink(${i},true)">글쓰기</button>
-          <button class="btn sm ghost" title="글은 쇼핑글 차례나 [시작] 때 써요" onclick="kwLink(${i},false)">대기열만</button></div>`;
-      }
+      const badge = x.src==="ai"? `<span class="src">AI</span>` : x.src==="me"? `<span class="src">직접</span>` : "";
       return `<div class="kw" data-k="${esc(x.kw)}" id="kwr${i}">
-        <div class="rk">${x.rank}</div>
-        <div><div class="nm">${esc(x.kw)}${x.hot?" 🔥":""}</div><div class="note">${esc(x.cat_name)}${x.prev?` · 어제 ${x.prev}위`:""}</div></div>
+        <div class="rk">${x.rank||"·"}</div>
+        <div><div class="nm">${esc(x.kw)}${x.hot?" 🔥":""} ${badge}</div><div class="note">${esc(x.note)}</div></div>
         <a class="btnlink" target="_blank" href="${esc(href)}">③ 링크 발행하기 ↗</a>
-        ${tail}</div>`;
+        <input id="kwl${i}" placeholder="④ 발급한 링크 붙여넣기">
+        <div class="row acts" style="gap:6px;flex-wrap:nowrap"><button class="btn sm primary" onclick="kwLink(${i},true)">글쓰기</button>
+          <button class="btn sm ghost" title="글은 쇼핑글 차례나 [시작] 때 써요" onclick="kwLink(${i},false)">대기열만</button>
+          <button class="x" title="이 키워드는 빼기 (2주 동안 안 보여요)" onclick="kwSkip(${i})">✕</button></div></div>`;
     }).join("");
+}
+function drawKwDone(){
+  const mine=(S.kw_links||[]).filter(l=>l.account===curAcc), seen=new Set();
+  const rows=mine.filter(l=>!seen.has(l.keyword)&&seen.add(l.keyword)).slice(0,8);
+  $("kwDone").innerHTML = rows.length? `<div class="kwdone"><h3>최근 링크 넣은 키워드 <span class="muted" style="font-weight:500">· 30일 동안 위 목록에서 빠져요</span></h3>` + rows.map(l=>{
+      const st = l.post_status==="SCHEDULED"||l.post_status==="PUBLISHED" ? ["t-live",`글 예약됨 · ${when(l.post_at)}`]
+               : l.post_status==="WRITING" ? ["t-blue","글 쓰는 중"] : l.status==="FAILED" ? ["t-red","글쓰기 실패"] : ["t-grey","링크 넣음 · 대기열"];
+      return `<div class="it"><span class="nm">${esc(l.keyword)}</span><span class="tag ${st[0]}">${st[1]}</span>${l.post_title?`<span class="muted">${esc(l.post_title)}</span>`:""}</div>`;
+    }).join("") + `</div>` : "";
 }
 function kwLink(i, write){
   const row=$("kwr"+i), url=$("kwl"+i).value.trim();
   post("/api/kw/link",{keyword: row.dataset.k, url, account: curAcc, write}).then(j=>{ if(j&&j.ok){ $("kwl"+i).value=""; } });
 }
+function kwSkip(i){ const k=$("kwr"+i).dataset.k; post("/api/kw/skip",{keyword:k}).then(()=>drawKwFlow(S.trends||{}, true)); }
+function kwMore(){ kwPage++; drawKwFlow(S.trends||{}, true); }
+function kwAdd(){ const v=$("kwAdd").value.trim(); if(!v) return; post("/api/kw/add",{keyword:v}).then(j=>{ if(j&&j.ok){ $("kwAdd").value=""; kwPage=0; } }); }
+function kwSuggest(){ post("/api/kw/suggest",{account: curAcc}).then(()=>{ kwPage=0; }); }
+function openCats(){ const d=$("catpick").closest("details"); d.open=true; d.scrollIntoView({behavior:"smooth",block:"center"}); }
 function saveCats(){ post("/api/trends/cats",{cats:[...document.querySelectorAll("#catpick input:checked")].map(e=>e.value)}); }
 function useKw(k){ go("home"); $("topic").value=k; $("topic").focus(); toast(`'${k}'를 정보글 주제로 넣었어요`); }
 function saveStyle(){ post("/api/style",{notes:$("styleNotes").value}); }

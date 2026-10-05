@@ -1,6 +1,7 @@
 """대시보드 — 파이썬 내장 웹서버 (http://127.0.0.1:8765). 설치할 것 없음."""
 from __future__ import annotations
 
+import datetime as dt
 import json
 import os
 import re
@@ -34,6 +35,7 @@ def _recent() -> list:
 
 def state() -> dict:
     cfg = config.load()
+    trends.tidy_lists()
     return {
         "version": __version__,
         "auto": scheduler.get(),
@@ -53,6 +55,12 @@ def state() -> dict:
                       "p.id AS post_id, p.title AS post_title, p.status AS post_status, p.scheduled_at AS post_at "
                       "FROM links l LEFT JOIN posts p ON p.id = l.used_post "
                       "ORDER BY CASE l.status WHEN 'WAITING' THEN 0 ELSE 1 END, l.id DESC LIMIT 100"),
+        # 최근 30일 안에 링크를 넣은 키워드 (키워드 줄에서 '다 쓴 키워드'로 빼고 결과만 보여줌)
+        "kw_links": db.q("SELECT l.id, l.status, l.account, l.keyword, l.created_at, "
+                         "p.title AS post_title, p.status AS post_status, p.scheduled_at AS post_at "
+                         "FROM links l LEFT JOIN posts p ON p.id = l.used_post "
+                         "WHERE l.keyword IS NOT NULL AND l.created_at >= ? ORDER BY l.id DESC",
+                         ((dt.date.today() - dt.timedelta(days=trends.USED_DAYS)).isoformat(),)),
         "logs": _recent(),
         "style": style.get(),
         "update": updater.get(),
@@ -178,6 +186,27 @@ def handle(path: str, body: dict) -> dict:
             log(f"⬇️ 업데이트 확인: {updater.get()['last_result'] or r}")
         threading.Thread(target=job, daemon=True).start()
         return {"ok": True, "msg": ""}
+    if path == "/api/kw/skip":
+        kw = (body.get("keyword") or "").strip()
+        if kw:
+            trends.skip(kw)
+        return {"ok": True, "msg": f"'{kw}'는 2주 동안 안 보여줄게요."}
+    if path == "/api/kw/unskip":
+        n = trends.unskip_all()
+        return {"ok": True, "msg": f"뺀 키워드 {n}개를 다시 보여줘요."}
+    if path == "/api/kw/add":
+        kws = [k.strip() for k in re.split(r"[,\n]", body.get("keyword") or "") if k.strip()]
+        if not kws:
+            return {"ok": False, "msg": "키워드를 적어주세요."}
+        n = trends.add_extra([{"kw": k} for k in kws], "me")
+        return {"ok": True, "msg": f"키워드 {n}개를 맨 위에 넣었어요." if n else "이미 있는 키워드예요."}
+    if path == "/api/kw/suggest":
+        if not config.get("GEMINI_API_KEY"):
+            return {"ok": False, "msg": "설정에서 Gemini API 키를 먼저 넣어주세요."}
+        if trends.get().get("suggesting"):
+            return {"ok": True, "msg": "이미 고르는 중이에요."}
+        threading.Thread(target=trends.suggest, args=(int(body.get("account") or 1),), daemon=True).start()
+        return {"ok": True, "msg": "AI가 다른 키워드를 고르고 있어요 (10~30초)."}
     if path == "/api/trends/refresh":
         return {"ok": True, "msg": scheduler.run_trends()}
     if path == "/api/trends/cats":
