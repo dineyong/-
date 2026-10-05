@@ -44,7 +44,7 @@ def state() -> dict:
         "current": scheduler.state["current"],
         "next_check": scheduler.state["next_check"],
         "logged_in": bool(scheduler.usable_accounts()),
-        "settings": {k: (_mask(cfg.get(k, "")) if k == "GEMINI_API_KEY" else cfg.get(k, "")) for k in config.EDITABLE},
+        "settings": {k: (_mask(cfg.get(k, "")) if k.endswith("_API_KEY") else cfg.get(k, "")) for k in config.EDITABLE},
         "labels": config.EDITABLE,
         "posts": db.q("SELECT id, kind, status, topic, title, scheduled_at, error, note, mode, post_url, auto, account, "
                       "created_at FROM posts ORDER BY id DESC LIMIT 80"),
@@ -214,8 +214,8 @@ def handle(path: str, body: dict) -> dict:
         return {"ok": True, "msg": "실패한 글 기록을 지웠어요."}
     if path == "/api/settings":
         upd = {k: str(v).strip() for k, v in body.items() if k in config.EDITABLE and str(v).strip()}
-        if "GEMINI_API_KEY" in upd and "…" in upd["GEMINI_API_KEY"]:
-            upd.pop("GEMINI_API_KEY")          # 가려진 값 그대로면 안 바꿈
+        for k in [k for k in upd if k.endswith("_API_KEY") and "…" in upd[k]]:
+            upd.pop(k)                         # 가려진 값 그대로면 안 바꿈
         if "NAVER_BLOG_ID" in upd:
             m = re.search(r"blog\.naver\.com/([A-Za-z0-9_\-]+)", upd["NAVER_BLOG_ID"])
             upd["NAVER_BLOG_ID"] = m.group(1) if m else upd["NAVER_BLOG_ID"]
