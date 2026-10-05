@@ -27,7 +27,7 @@ CHECK_EVERY_H = 6
 
 
 def get() -> dict:
-    s = {"notes": "", "learned": 0, "edited": 0, "updated_at": None, "last_check": None, "last_result": ""}
+    s = {"notes": "", "sample": "", "learned": 0, "edited": 0, "updated_at": None, "last_check": None, "last_result": ""}
     s.update(db.setting(KEY, {}) or {})
     return s
 
@@ -41,10 +41,15 @@ def save(**patch) -> dict:
 
 def block() -> str:
     """프롬프트에 붙일 말투 메모."""
-    notes = (get().get("notes") or "").strip()
-    if not notes:
-        return ""
-    return ("\n[이 블로그 주인의 말투 — 주인이 직접 고친 글에서 배운 것. 다른 규칙보다 우선]\n" + notes + "\n")
+    s = get()
+    notes, sample = (s.get("notes") or "").strip(), (s.get("sample") or "").strip()
+    out = ""
+    if notes:
+        out += "\n[이 블로그 주인의 말투 — 주인이 직접 고친 글에서 배운 것. 다른 규칙보다 우선]\n" + notes + "\n"
+    if sample:
+        out += ("\n[주인이 실제로 공개한 글의 앞부분 — 내용·주제는 따라 하지 말고 말투, 문장 길이, 줄바꿈, 문단 호흡만 참고]\n"
+                + sample + "\n")
+    return out
 
 
 # ─────────────────────────────────────────────
@@ -147,6 +152,17 @@ SYSTEM = ("당신은 블로그 글쓰기 코치입니다. AI가 쓴 초안과, �
           "주인이 원하는 말투·표현·구성 습관을 찾아 '다음 글을 쓸 AI에게 주는 규칙'으로 정리합니다.")
 
 
+def _sample(final: str, limit: int = 700) -> str:
+    """공개 글 앞부분 (인사·도입) — 공정위 문구 줄은 빼고 문단 단위로 자름."""
+    lines = [x for x in final.splitlines() if not re.search(r"쇼핑 ?커넥트|수수료를 제공", x)]
+    out = ""
+    for x in lines:
+        if len(out) + len(x) > limit:
+            break
+        out += x + "\n"
+    return out.strip()
+
+
 def _learn(pairs: list[dict], old_notes: str) -> str:
     blocks = []
     for i, p in enumerate(pairs[:5], 1):
@@ -203,7 +219,7 @@ def _check_one(account: int, blog_id: str, now: dt.datetime) -> str:
         log(f"🗣️ 말투 학습: 블로그 글 목록 읽기 실패 — {e}")
         return "실패"
 
-    pairs, matched = [], 0
+    pairs, matched, sample = [], 0, ""
     for p in mine:
         at = dt.datetime.fromisoformat(p["scheduled_at"])
         item = next((it for it in items if _norm(it["title"]) == _norm(p["title"])), None) or next(
@@ -214,6 +230,8 @@ def _check_one(account: int, blog_id: str, now: dt.datetime) -> str:
             continue
         matched += 1
         final = post_text(blog_id, item["link"], item["desc"])
+        if len(final) > 300 and not sample:
+            sample = _sample(final)
         draft = p["body"]
         # 초안 제목 줄은 빼고 본문끼리 비교
         draft_body = draft.split("\n\n", 1)[1] if "\n\n" in draft else draft
@@ -221,6 +239,8 @@ def _check_one(account: int, blog_id: str, now: dt.datetime) -> str:
         db.update_post(p["id"], learned=1)
         if ratio < 0.97 and len(final) > 200:
             pairs.append({"title": item["title"], "diff": _diff(draft_body, final), "ratio": ratio})
+    if sample:
+        save(sample=sample)          # 가장 최근 공개 글 = 다음 글의 말투 예시
     n_learned = s.get("learned", 0) + matched
     if not pairs:
         msg = f"글 {matched}편 비교 — 고친 곳이 없어서 말투 메모는 그대로예요" if matched else "아직 공개된 글을 못 찾았어요"

@@ -22,22 +22,26 @@ def clean_for_editor(text: str) -> str:
 _KEEP = re.compile(r"^(\s*$|[#📌✔✅💚🔎👇💰🎯⚠🤔📷※(]|[①②③④⑤⑥⑦⑧⑨]|https?://|제품명|가격|\d+\.|-\s)")
 
 
+_CLAUSE = re.compile(r"(,|고|서|데|면|지만|는데|니까|으며|며|라서|해도|려면|할 때|때)$")
+
+
 def blog_lines(text: str) -> str:
-    """문장마다 줄을 바꾸고, 긴 문장은 14~22자 근처 띄어쓰기에서 끊는다."""
+    """문장마다 줄을 바꾸고, 긴 문장은 말이 끊기는 자리(~고, ~서, ~는데, 쉼표)에서 나눈다.
+    글자 수로 기계적으로 자르면 '어디서 끊겼지?' 싶은 줄이 생겨서, 자연스러운 곳이 없을 때만 길이로 자른다."""
     out: list[str] = []
     for raw in text.split("\n"):
         line = raw.strip()
-        if _KEEP.match(line) or len(line) <= 24:
+        if _KEEP.match(line) or len(line) <= 28:
             out.append(line)
             continue
         for sen in re.split(r"(?<=[.!?…~])\s+", line):
-            if len(sen) <= 24:
+            if len(sen) <= 30:
                 out.append(sen)
                 continue
             cur = ""
             for w in sen.split(" "):
                 nxt = f"{cur} {w}" if cur else w
-                if len(cur) >= 14 and len(nxt) > 22:
+                if cur and (len(nxt) > 32 or (len(cur) >= 12 and _CLAUSE.search(cur) and len(sen) - len(cur) > 8)):
                     out.append(cur)
                     cur = w
                 else:
