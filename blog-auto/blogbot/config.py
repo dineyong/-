@@ -38,6 +38,13 @@ DEFAULTS: dict[str, str] = {
     "BLOG_TOPIC": "생활 꿀팁 (살림·청소, 정리수납, 계절 준비, 자취·원룸, 침구·수면 습관, 욕실 관리, "
                   "여행 짐싸기, 반려식물·베란다, 홈카페·간단 주방 팁, 절약 생활)",
     "FTC_DISCLOSURE": "이 포스팅은 네이버 쇼핑 커넥트 활동의 일환으로,\n판매가 발생되면 수수료를 제공받을 수 있습니다.",
+    # 글 분위기 사진: AI 생성(Gemini 이미지) + 무료 스톡(Pexels·Pixabay, 키가 있을 때만). PHOTO_MODE=off 면 손그림만
+    "GEMINI_IMAGE_MODELS": "gemini-3.1-flash-image,gemini-3.1-flash-lite-image,gemini-2.5-flash-image",
+    "PEXELS_API_KEY": "",
+    "PIXABAY_API_KEY": "",
+    "PHOTO_MODE": "auto",
+    # 다 쓴 초안을 한 번 더 읽고 AI 티 나는 표현 다듬기 (off 면 건너뜀)
+    "POLISH": "on",
     "IMAGE_WIDTH": "480",
     "THUMB_WIDTH": "600",
     "SHOPPING_CONNECT_URL": "",
@@ -48,6 +55,8 @@ DEFAULTS: dict[str, str] = {
 # 대시보드에서 바꿀 수 있는 항목 (화면 표시 이름)
 EDITABLE = {
     "GEMINI_API_KEY": "Gemini API 키",
+    "PEXELS_API_KEY": "Pexels API 키 (무료 스톡 사진, 선택)",
+    "PIXABAY_API_KEY": "Pixabay API 키 (무료 스톡 사진, 선택)",
     "BLOG_TOPIC": "정보글 주제 범위",
     "FTC_DISCLOSURE": "공정위 문구 (쇼핑글 맨 위)",
 }

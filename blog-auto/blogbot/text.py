@@ -23,19 +23,19 @@ _KEEP = re.compile(r"^(\s*$|[#📌✔✅💚🔎👇💰🎯⚠🤔📷※(]|[�
 
 
 # 여기서 끊으면 자연스러운 말끝 (쉼표·연결 어미·조사). "들어갈 / 때마다"처럼 꾸미는 말 뒤에서는 안 끊음
-_GOOD_END = re.compile(r"(,|요|고|서|데|면|며|니까|지만|는데|면서|거든요|라서|해서|어서|아서|을|를|에|에서|으로|로|도|까지|부터|만|과|와|랑|께)$")
+_GOOD_END = re.compile(r"(,|요|고|서|데|면|며|니까|지만|는데|면서|거든요|라서|해서|어서|아서|으며|해도|려면|때|을|를|에|에서|으로|로|도|까지|부터|만|과|와|랑|께)$")
 
 
 def blog_lines(text: str) -> str:
-    """문장마다 줄을 바꾸고, 긴 문장은 14~24자 근처의 자연스러운 말끝에서 끊는다."""
+    """문장마다 줄을 바꾸고, 긴 문장은 12~28자 근처의 자연스러운 말끝(~고, ~서, ~는데, 쉼표, 조사)에서 끊는다."""
     out: list[str] = []
     for raw in text.split("\n"):
         line = raw.strip()
-        if _KEEP.match(line) or len(line) <= 24:
+        if _KEEP.match(line) or len(line) <= 28:
             out.append(line)
             continue
         for sen in re.split(r"(?<=[.!?…~])\s+", line):
-            if len(sen) <= 24:
+            if len(sen) <= 30:
                 out.append(sen)
                 continue
             words, cur = sen.split(" "), ""
