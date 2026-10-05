@@ -40,6 +40,7 @@ DEFAULTS: dict[str, str] = {
     "FTC_DISCLOSURE": "이 포스팅은 네이버 쇼핑 커넥트 활동의 일환으로,\n판매가 발생되면 수수료를 제공받을 수 있습니다.",
     "IMAGE_WIDTH": "480",
     "THUMB_WIDTH": "600",
+    "SHOPPING_CONNECT_URL": "",
     # 자동 업데이트 창고 (GitHub 공개 저장소의 blog-auto 폴더)
     "UPDATE_URL": "https://raw.githubusercontent.com/dineyong/-/main/blog-auto",
 }
@@ -50,6 +51,7 @@ EDITABLE = {
     "NAVER_BLOG_ID": "네이버 블로그 아이디 (blog.naver.com/ 뒤 부분)",
     "BLOG_TOPIC": "정보글 주제 범위",
     "FTC_DISCLOSURE": "공정위 문구 (쇼핑글 맨 위)",
+    "SHOPPING_CONNECT_URL": "쇼핑커넥트 상품 목록 주소 (브랜드커넥트에서 상품 검색하는 화면 주소)",
 }
 
 _LINE = re.compile(r'^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$')
@@ -94,6 +96,12 @@ def get(key: str) -> str:
 
 OLD_COPY = HOME / "old"   # 터미널로 예전 파일을 복사해 두는 곳 (맥이 '다운로드' 폴더 접근을 막을 때)
 OLD_DOWNLOADS = Path.home() / "Downloads" / "naver-bc-automation-main"
+
+
+def shopping_connect_base() -> str:
+    """https://brandconnect.naver.com/{채널번호}/affiliate/products 형태로 정리 (없으면 빈 값)."""
+    m = re.search(r"brandconnect\.naver\.com/(\d{6,})", get("SHOPPING_CONNECT_URL"))
+    return f"https://brandconnect.naver.com/{m.group(1)}/affiliate/products" if m else ""
 
 
 def can_see(p: Path) -> bool:

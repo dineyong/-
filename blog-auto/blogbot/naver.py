@@ -675,6 +675,10 @@ OUTLINE_JS = r"""() => {
 }"""
 
 
+class _Done(Exception):
+    pass
+
+
 def recon_shopping_connect(keyword: str) -> str:
     """브랜드커넥트 화면들을 저장하고 zip 경로를 돌려줌."""
     import zipfile
@@ -751,6 +755,28 @@ def recon_shopping_connect(keyword: str) -> str:
 
     try:
         log(f"🔎 쇼핑커넥트 화면 살펴보기 (검색어: {keyword}) — 검색까지만 하고 아무것도 발급하지 않아요")
+        base = config.shopping_connect_base()
+        if base:
+            # 사용자가 알려준 상품 목록 화면으로 바로
+            w.page.goto(base, timeout=30000)
+            snap("products")
+            if "nid.naver.com" in w.page.url:
+                notes.append("로그인 화면으로 넘어감 → 네이버 로그인 필요")
+            else:
+                if try_search("products-search"):
+                    # 검색 결과의 첫 상품 상세 화면 (주소로 이동만, 아무것도 누르지 않음)
+                    detail = None
+                    for t, h in links_now():
+                        if h and re.search(r"/affiliate/products/\d+", h):
+                            detail = h
+                            break
+                    if detail:
+                        w.page.goto(detail, timeout=30000)
+                        snap("product-detail")
+                    else:
+                        notes.append("검색 결과에서 상품 상세 주소(/affiliate/products/번호)를 못 찾음 — 카드가 버튼 방식일 수 있음")
+            notes.append("상세 화면의 [링크 발급]은 누르지 않았어요")
+            raise _Done()
         w.page.goto("https://brandconnect.naver.com/", timeout=30000)
         snap("home")
         if "nid.naver.com" in w.page.url:
@@ -794,6 +820,8 @@ def recon_shopping_connect(keyword: str) -> str:
                     try_search(f"menu{i}-search")
                 except Exception as e:  # noqa: BLE001
                     notes.append(f"{href} 열기 실패: {e}")
+    except _Done:
+        pass
     finally:
         (d / "notes.txt").write_text("\n".join(notes), "utf-8")
         (d / "requests.txt").write_text("\n".join(dict.fromkeys(reqs)), "utf-8")
