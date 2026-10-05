@@ -184,7 +184,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/state":
             return self._json(state())
         if self.path == "/api/ping":
-            return self._json({"app": "blogbot"})
+            return self._json({"app": "blogbot", "version": __version__, "pid": os.getpid()})
         self._send(404, b"not found", "text/plain")
 
     def do_POST(self):

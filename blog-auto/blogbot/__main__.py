@@ -12,20 +12,49 @@ import webbrowser
 from . import __version__, config
 
 
-def already_running(port: int) -> bool:
+def running_version(port: int):
+    """이미 켜진 프로그램의 버전 (없으면 None, 예전 버전이라 버전을 안 알려주면 "0")."""
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/ping", timeout=2) as r:
-            return json.loads(r.read()).get("app") == "blogbot"
+            d = json.loads(r.read())
+            return str(d.get("version") or "0") if d.get("app") == "blogbot" else None
     except Exception:
-        return False
+        return None
+
+
+def _vt(v):
+    try:
+        return tuple(int(x) for x in v.split("."))
+    except ValueError:
+        return (0,)
+
+
+def stop_old(port: int) -> bool:
+    """예전 버전이 아직 떠 있으면 끄라고 하고 꺼질 때까지 기다림."""
+    try:
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/api/quit", data=b"{}", method="POST",
+                                     headers={"X-Blogbot": "1", "Content-Type": "application/json"})
+        urllib.request.urlopen(req, timeout=3).read()
+    except Exception:
+        pass
+    for _ in range(20):
+        time.sleep(0.5)
+        if running_version(port) is None:
+            return True
+    return False
 
 
 def main():
     from .server import PORT, old_project
     url = f"http://127.0.0.1:{PORT}/"
-    if already_running(PORT):            # 이미 켜져 있으면 화면만 다시 열기
-        webbrowser.open(url)
-        return
+    other = running_version(PORT)
+    if other is not None:
+        if _vt(other) >= _vt(__version__):   # 같은(또는 더 새) 버전이 켜져 있으면 화면만 다시 열기
+            webbrowser.open(url)
+            return
+        # 예전 버전이 남아 있으면 끄고 새 버전으로 켬 (업데이트했는데 예전 버전이 계속 보이던 문제)
+        print(f"예전 버전 {other} 이 켜져 있어서 끄고 {__version__} 으로 켤게요", flush=True)
+        stop_old(PORT)
 
     from . import scheduler, server
     from .log import cleanup_old, log
