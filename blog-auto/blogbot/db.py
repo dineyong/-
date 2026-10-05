@@ -63,6 +63,7 @@ _LINK_COLS = {
     "account": "INTEGER NOT NULL DEFAULT 1",   # 어느 계정의 링크인지 (쇼핑커넥트 링크는 발급한 계정 것)
     "used_post": "INTEGER",                    # 이 링크로 쓴 글
     "used_at": "TEXT",
+    "keyword": "TEXT",                         # 어떤 인기 키워드로 발행한 링크인지
 }
 _have = {r[1] for r in _conn.execute("PRAGMA table_info(links)")}
 for _c, _t in _LINK_COLS.items():

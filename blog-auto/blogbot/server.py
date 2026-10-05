@@ -49,7 +49,7 @@ def state() -> dict:
         "posts": db.q("SELECT id, kind, status, topic, title, scheduled_at, error, note, mode, post_url, auto, account, "
                       "created_at FROM posts ORDER BY id DESC LIMIT 80"),
         # 링크 + 그 링크로 쓴 글 (사용 완료 표시용)
-        "links": db.q("SELECT l.id, l.url, l.memo, l.status, l.product_name, l.account, l.created_at, l.used_at, "
+        "links": db.q("SELECT l.id, l.url, l.memo, l.status, l.product_name, l.account, l.keyword, l.created_at, l.used_at, "
                       "p.id AS post_id, p.title AS post_title, p.status AS post_status, p.scheduled_at AS post_at "
                       "FROM links l LEFT JOIN posts p ON p.id = l.used_post "
                       "ORDER BY CASE l.status WHEN 'WAITING' THEN 0 ELSE 1 END, l.id DESC LIMIT 100"),
@@ -119,6 +119,24 @@ def handle(path: str, body: dict) -> dict:
         except ValueError as e:
             return {"ok": False, "msg": str(e)}
         return {"ok": True, "msg": "계정을 뺐어요. (그 계정으로 쓴 글 기록은 남아 있어요)"}
+    if path == "/api/kw/link":
+        # 인기 키워드 줄에서: 직접 발급한 링크 넣기 (+ 바로 쇼핑글 쓰기)
+        url = (body.get("url") or "").strip()
+        if not re.match(r"https?://\S+$", url):
+            return {"ok": False, "msg": "쇼핑커넥트에서 발급한 링크(https://…)를 붙여넣어 주세요."}
+        acc_n = int(body.get("account") or 1)
+        kw = (body.get("keyword") or "").strip()[:40] or None
+        lid = db.run("INSERT INTO links(url, status, account, keyword, created_at) VALUES(?, 'WAITING', ?, ?, ?)",
+                     (url, acc_n, kw, db.now()))
+        log(f"🔗 링크 넣음{f' ({kw})' if kw else ''} → {accounts.get(acc_n)['label']} 대기열")
+        if body.get("write"):
+            if not config.get("GEMINI_API_KEY"):
+                return {"ok": False, "msg": "링크는 넣었어요. 글을 쓰려면 설정에서 Gemini API 키를 넣어주세요."}
+            msg = scheduler.request("shop", None, "schedule", acc_n, lid)
+            if msg.startswith("이미") or msg.startswith("다른"):
+                return {"ok": True, "msg": "링크는 대기열에 넣었어요. 지금 다른 글을 쓰는 중이라, 끝나면 [쇼핑글 쓰기]를 눌러주세요."}
+            return {"ok": True, "msg": "링크를 넣고 쇼핑글을 쓰기 시작했어요. 빈 시간에 예약돼요."}
+        return {"ok": True, "msg": "링크를 대기열에 넣었어요. 쇼핑글 차례(또는 [시작])에 써요."}
     if path == "/api/links":
         n = add_links(body.get("text", ""), body.get("memo", ""), int(body.get("account") or 1))
         return {"ok": n > 0, "msg": f"링크 {n}개를 대기열에 넣었어요." if n else "새 링크(https://…)를 찾지 못했어요."}

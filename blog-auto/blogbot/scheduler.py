@@ -168,7 +168,8 @@ def _worker():
                 log(f"❌ 작업 오류: {e}")
 
 
-def request(kind: str | None = None, topic: str | None = None, mode: str | None = None, account: int = 1) -> str:
+def request(kind: str | None = None, topic: str | None = None, mode: str | None = None, account: int = 1,
+            link_id: int | None = None) -> str:
     """대시보드 '지금 1편 쓰기'. kind=None 이면 비율대로."""
     if busy.locked() or not _jobs.empty():
         return "이미 작업 중이에요. 끝나면 다시 눌러주세요."
@@ -176,7 +177,7 @@ def request(kind: str | None = None, topic: str | None = None, mode: str | None 
     if kind in (None, "auto"):
         kind, link_id = next_kind(get()["ratio"], account)
     elif kind == "shop":
-        link_id = waiting_link(account)
+        link_id = link_id or waiting_link(account)
         if not link_id:
             return f"[{accounts.get(account)['label']}] 쇼핑 링크 대기열이 비어 있어요. 링크를 먼저 넣어주세요."
     mode = mode if mode in ("schedule", "now") else get()["mode"]
