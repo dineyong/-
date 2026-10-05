@@ -727,6 +727,28 @@ def recon_shopping_connect(keyword: str) -> str:
         notes.append(f"{label}: 검색 칸을 못 찾음")
         return False
 
+    # 페이지가 내부적으로 부르는 주소 기록 (상품 검색·링크 발급이 어떤 요청인지 알 수 있음)
+    reqs: list[str] = []
+
+    def on_req(r):
+        try:
+            u = r.url
+            if ("naver.com" in u and "pstatic" not in u and not re.search(r"\.(js|css|png|jpg|svg|woff2?|ico)(\?|$)", u)
+                    and r.resource_type in ("xhr", "fetch", "document")):
+                reqs.append(f"{r.method} {u[:300]}" + (f"  BODY {r.post_data[:300]}" if r.post_data else ""))
+        except Exception:
+            pass
+    w.page.on("request", on_req)
+
+    def links_now() -> list:
+        out = []
+        for f in w.page.frames:
+            try:
+                out += f.evaluate("() => Array.from(document.querySelectorAll('a')).map(a => [a.innerText.trim().replace(/\\s+/g,' '), a.href])")
+            except Exception:
+                pass
+        return out
+
     try:
         log(f"🔎 쇼핑커넥트 화면 살펴보기 (검색어: {keyword}) — 검색까지만 하고 아무것도 발급하지 않아요")
         w.page.goto("https://brandconnect.naver.com/", timeout=30000)
@@ -734,27 +756,47 @@ def recon_shopping_connect(keyword: str) -> str:
         if "nid.naver.com" in w.page.url:
             notes.append("로그인 화면으로 넘어감 → 네이버 로그인 필요")
         else:
-            try_search("home-search")
-            # '쇼핑커넥트'/'상품' 메뉴 주소가 보이면 그 주소로 이동해서 한 번 더 (클릭 대신 주소 이동)
-            seen = set()
-            for f in w.page.frames:
+            # 'MY' 메뉴 열기 (메뉴만 펼침)
+            for sel in ('button[class*="my" i]', 'button:has-text("MY")', 'a:has-text("MY")'):
                 try:
-                    links = f.evaluate("() => Array.from(document.querySelectorAll('a')).map(a => [a.innerText.trim(), a.href])")
+                    b = w.page.query_selector(sel)
+                    if b and b.is_visible():
+                        b.click()
+                        notes.append(f"MY 메뉴 열기: {sel}")
+                        snap("my-menu")
+                        break
                 except Exception:
                     continue
-                for text, href in links:
-                    if href and href.startswith("http") and re.search(r"쇼핑\s*커넥트|상품|링크|shopping|product", f"{text} {href}", re.I) \
-                            and "logout" not in href.lower() and href not in seen and len(seen) < 3:
-                        seen.add(href)
-            for i, href in enumerate(sorted(seen)):
+            cand, seen = [], set()
+            for text, href in links_now():
+                if not href or not href.startswith("http") or href in seen:
+                    continue
+                if re.search(r"logout|nid\.naver|help|notice|policy|terms|partner", href, re.I):
+                    continue
+                if re.search(r"쇼핑|커넥트|상품|제휴|링크|채널|크리에이터|MY|마이|홈|대시보드|affiliate|shopping|product|creator|channel|my",
+                             f"{text} {href}", re.I):
+                    seen.add(href)
+                    cand.append((text, href))
+            notes.append("후보 메뉴: " + " | ".join(f"{t[:20]}→{h}" for t, h in cand[:15]))
+            i = 0
+            while i < len(cand) and i < 10:          # 찾은 메뉴를 차례로 (중간에 새로 찾은 것도 이어서)
+                text, href = cand[i]
+                i += 1
                 try:
                     w.page.goto(href, timeout=30000)
-                    snap(f"menu{i + 1}")
-                    try_search(f"menu{i + 1}-search")
+                    snap(f"menu{i}")
+                    for t2, h2 in links_now():
+                        if (h2 and h2.startswith("http") and h2 not in seen and len(seen) < 14
+                                and re.search(r"쇼핑\s*커넥트|상품|affiliate|shopping|product", f"{t2} {h2}", re.I)
+                                and not re.search(r"logout|help|notice", h2, re.I)):
+                            seen.add(h2)
+                            cand.insert(i, (t2, h2))       # 바로 다음에 보기
+                    try_search(f"menu{i}-search")
                 except Exception as e:  # noqa: BLE001
                     notes.append(f"{href} 열기 실패: {e}")
     finally:
         (d / "notes.txt").write_text("\n".join(notes), "utf-8")
+        (d / "requests.txt").write_text("\n".join(dict.fromkeys(reqs)), "utf-8")
         w.close()
     zpath = config.HOME / "recon" / f"쇼핑커넥트화면-{stamp}.zip"
     with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
