@@ -1,8 +1,8 @@
 {
- "version": "1.5.0",
- "notes": "[시작] 한 세트(정보 3 + 쇼핑 1), 블로그 계정 3개까지, 링크 사용 완료 표시",
+ "version": "1.5.1",
+ "notes": "인기 키워드 6개로 추림 + 쇼핑커넥트 바로가기",
  "files": {
-  "blogbot/__init__.py": "80e33601549234686aeb3d029793b23c1cf15c883ac880eb749de43a552a718e",
+  "blogbot/__init__.py": "20e7e7e8cbe453fe4e78c2bc165de8e5bdacc60929f3862ee360cf2cdb49e481",
   "blogbot/__main__.py": "d93ce8f71095dc4c43cf39b98672e3296bd8cd623a32719b8799d69b87ff4c50",
   "blogbot/accounts.py": "2d8d9a297a172c229b429dcf96d814570a2b6f0a2ff073a7a54c98aeba949fcb",
   "blogbot/ai.py": "626f3f40a6534c8d5f27b61893b1310ae00d260d69dce018197a0924f94a1d8a",
@@ -17,9 +17,9 @@
   "blogbot/shopconnect.py": "55993860fe397ba9ed06bed35c86f82b274d8e46c1f6fc36f081cbe541b69008",
   "blogbot/style.py": "a9024b68c451309c2cdf1a210a80bbb842245795c373cc21a34c2c4942fb2e2d",
   "blogbot/text.py": "fd727cbe4d4aac883f72a18c167d3286d2c53852232eb6f61c6d5da75f539dab",
-  "blogbot/trends.py": "8f4caae1ea7733b218f38a7b1340faf3b584817ce9f912fb3535ffefa8195c07",
+  "blogbot/trends.py": "e8369b74e4ca9a19de41600bf78f8b2ea0e6d90009537b615edb8df88f80d70e",
   "blogbot/updater.py": "651a8112691166207085e1f3796182860538a4a79c5a601765ecd75c6da2bf78",
-  "blogbot/web/index.html": "e7045aa7caa7c0deadc5e7dec74e9a5d36ee3a3b73fc05ec4c9ac4163f7bfbb6",
+  "blogbot/web/index.html": "706c402902e5ddd30ba34216f1a44ccd04d2ac336852176ae227df335b6633dc",
   "blogbot/writer.py": "8b3205b4a8d36a87110ee3acdf8e896cba417d82b067fe9cd8496abdb144c966"
  }
 }

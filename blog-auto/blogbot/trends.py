@@ -54,7 +54,7 @@ JS = """async ({url, cid, day, count}) => {
 }"""
 
 
-def collect(count: int = 20) -> dict:
+def collect(count: int = 10) -> dict:
     """데이터랩에서 분야별 인기 검색어를 읽어 저장. 로봇 브라우저는 화면 없이(headless) 잠깐만 씀."""
     from playwright.sync_api import sync_playwright
     s = get()
