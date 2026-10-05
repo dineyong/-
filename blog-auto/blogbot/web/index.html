@@ -123,6 +123,23 @@ textarea{resize:vertical}
 .ratio b.done{background:var(--live-bg);color:var(--live)} .ratio b.shop{background:var(--amber-bg);color:var(--amber)}
 .logmini{font-size:12.5px;color:var(--sub);line-height:1.7;max-height:180px;overflow:auto;white-space:pre-wrap;word-break:break-all}
 
+/* 계정 선택 · 한 세트 */
+.accbar{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.accbar button{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:5px 12px;font-weight:650;font-size:13px;color:var(--sub);cursor:pointer}
+.accbar button.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.accbar button .w{font-weight:500;opacity:.75;margin-left:4px}
+.setrow{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.setrow .big{font-size:15px;font-weight:700}
+.prog{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.prog span{font-size:12px;font-weight:650;padding:3px 9px;border-radius:6px;background:var(--sunk);color:var(--faint)}
+.prog span.ok{background:var(--live-bg);color:var(--live)} .prog span.run{background:var(--blue-bg);color:var(--blue)}
+.prog span.bad{background:var(--red-bg);color:var(--red)} .prog span.skip{background:var(--amber-bg);color:var(--amber)}
+.acct{border:1px solid var(--line);border-radius:var(--r-md);padding:14px;background:var(--sunk)}
+.acct + .acct{margin-top:10px}
+.acct .hd{display:flex;align-items:center;gap:8px;font-weight:700}
+.acct label{margin-top:8px}
+.acc-tag{font-size:11.5px;font-weight:700;color:var(--sub);background:var(--sunk);border-radius:5px;padding:0 6px;margin-left:4px}
+
 /* ── 표 ── */
 table{width:100%;border-collapse:collapse;font-size:14px}
 th{text-align:left;color:var(--sub);font-weight:600;font-size:12.5px;padding:8px;border-bottom:1px solid var(--line)}
@@ -212,6 +229,17 @@ details summary{cursor:pointer;color:var(--sub);font-size:13.5px;font-weight:600
 
     <!-- ═════════ 홈 ═════════ -->
     <section class="page on" id="p-home">
+      <div class="accbar" id="accHome"></div>
+      <div class="panel" style="margin-bottom:16px">
+        <div class="setrow">
+          <div style="flex:1;min-width:240px">
+            <div class="big">한 세트 쓰기</div>
+            <div class="muted" id="setDesc">켜진 계정마다 정보글 3편 + 쇼핑글 1편을 차례로 써서 빈 시간에 예약해요. 쇼핑글은 그 계정 대기열의 링크로 써요.</div>
+          </div>
+          <button class="btn primary" id="setBtn" onclick="startSet()">▶ 시작</button>
+        </div>
+        <div class="prog" id="setProg"></div>
+      </div>
       <div class="panel">
         <div class="hero">
           <div style="flex:1">
@@ -256,6 +284,7 @@ details summary{cursor:pointer;color:var(--sub);font-size:13.5px;font-weight:600
             <button class="btn primary" onclick="writeNow('info')">정보글 쓰기</button>
             <button class="btn" onclick="writeNow('shop')">쇼핑글 쓰기</button>
             <button class="btn ghost" onclick="writeNow('auto')">순서대로</button>
+            <span class="muted" id="writeAcc"></span>
           </div>
         </div>
       </div>
@@ -311,7 +340,8 @@ details summary{cursor:pointer;color:var(--sub);font-size:13.5px;font-weight:600
       <div class="grid2" style="margin-top:16px">
         <div class="panel">
           <h2>링크 대기열</h2>
-          <p class="desc">쇼핑글 차례가 되면 위에서부터 하나씩 써요.</p>
+          <p class="desc">쇼핑글 차례가 되면 위에서부터 하나씩 써요. 쓴 링크는 '사용 완료'로 바뀌고 어느 글에 썼는지 남아요.</p>
+          <div class="accbar" id="accShop" style="margin-bottom:6px"></div>
           <label style="margin-top:0">링크 붙여넣기 <span style="font-weight:400">(여러 개면 줄마다 하나씩)</span></label>
           <textarea id="linkText" rows="2" placeholder="https://naver.me/..."></textarea>
           <label>직접 써본 메모 <span style="font-weight:400">(선택 — 비우면 경험담 없이 정보 위주로 써요)</span></label>
@@ -347,10 +377,10 @@ details summary{cursor:pointer;color:var(--sub);font-size:13.5px;font-weight:600
         </div>
         <div>
           <div class="panel">
-            <h2>네이버 로그인</h2>
-            <p class="desc">창이 열리면 직접 로그인하세요. 저장되면 창은 저절로 닫혀요 (보통 1~4주 유지).</p>
-            <div class="row"><span class="tag" id="loginState">-</span><span class="spacer"></span>
-              <button class="btn" onclick="post('/api/login')">로그인 창 열기</button></div>
+            <h2>블로그 계정 <span class="muted" style="font-weight:500">최대 3개</span><span class="spacer"></span>
+              <button class="btn sm" id="accAdd" onclick="post('/api/accounts/add').then(()=>{accDrawn=false})">+ 계정 추가</button></h2>
+            <p class="desc">자동 작성과 [시작]은 1번 → 2번 → 3번 순서로 돌아요. 계정마다 로그인·블로그·쇼핑 링크가 따로예요.</p>
+            <div id="accList"></div>
           </div>
           <div class="panel">
             <h2>말투 메모 <span class="muted" style="font-weight:500">자동 학습</span></h2>
@@ -386,6 +416,8 @@ details summary{cursor:pointer;color:var(--sub);font-size:13.5px;font-weight:600
 <div id="toast"></div>
 
 <script>
+let curAcc = 1, accDrawn = false;
+try{ curAcc = +(localStorage.getItem("acc")||1) || 1; }catch(e){}
 let S = null, settingsDrawn = false, styleDrawn = false, writeMode = null, scDrawn=false, updLocalBusy=0, firstVersion=null;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -417,10 +449,59 @@ function when(iso){
 function hm(d){ return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
 function setState(el, cls, text){ el.className="state "+cls; el.lastElementChild.textContent=text; }
 
+/* ── 계정 ── */
+function acc(n){ return (S.accounts||[]).find(a=>a.id===n) || (S.accounts||[])[0]; }
+function multi(){ return (S.accounts||[]).length > 1; }
+function pickAcc(n){ curAcc=n; try{ localStorage.setItem("acc", n); }catch(e){} render(); }
+function drawAccBars(){
+  const html = (S.accounts||[]).map(a=>`<button class="${a.id===curAcc?"on":""}" onclick="pickAcc(${a.id})">${esc(a.label)}<span class="w">${esc(a.blog_id||"아이디 없음")}</span></button>`).join("");
+  ["accHome","accShop"].forEach(id=>{ $(id).innerHTML = multi()? html : ""; $(id).style.display = multi()? "" : "none"; });
+}
+function accLabel(n){ return multi()? `<span class="acc-tag">${esc((acc(n)||{}).label||n+"번")}</span>` : ""; }
+
+/* ── [시작] 한 세트 ── */
+function drawSet(){
+  const b=S.batch, running = b && !b.finished;
+  $("setBtn").textContent = running? "⏹ 멈춤" : "▶ 시작";
+  $("setBtn").className = "btn " + (running? "" : "primary");
+  const names=(S.accounts||[]).filter(a=>a.enabled&&a.blog_id).map(a=>a.label);
+  $("setDesc").textContent = running? `진행 중 ${b.done}/${b.items.length}편${b.stopped?" — 지금 글까지만 쓰고 멈춰요":""}`
+    : (multi()? `${names.join(" → ")} 순서로, 계정마다 정보글 3편 + 쇼핑글 1편을 써서 빈 시간에 예약해요.`
+              : "정보글 3편 + 쇼핑글 1편을 차례로 써서 빈 시간에 예약해요. 쇼핑글은 대기열의 링크로 써요.")
+      + (b && b.finished? ` 지난 세트: ${b.items.filter(x=>x.status==="완료").length}/${b.items.length}편 완료.` : "");
+  const cls={"완료":"ok","작성 중":"run","실패":"bad","링크 없음":"skip","멈춤":"skip"};
+  $("setProg").innerHTML = b? b.items.map(x=>`<span class="${cls[x.status]||""}">${multi()? esc((acc(x.account)||{}).label)+" ":""}${x.kind==="shop"?"쇼핑":"정보"} · ${esc(x.status)}</span>`).join("") : "";
+}
+function startSet(){ const b=S.batch; if(b && !b.finished) post("/api/batch/stop"); else post("/api/batch/start"); }
+
+/* ── 설정: 계정 관리 ── */
+function drawAccounts(){
+  if(accDrawn && $("accList").contains(document.activeElement)) return;
+  $("accAdd").style.display = (S.accounts||[]).length>=3? "none" : "";
+  $("accList").innerHTML = (S.accounts||[]).map(a=>`<div class="acct">
+    <div class="hd">${a.id}번 <span class="tag ${a.login_bad?"t-red":a.logged_in?"t-live":"t-red"}">${a.login_bad?"로그인 풀림":a.logged_in?"로그인 됨":"로그인 필요"}</span>
+      <span class="spacer"></span>
+      <label style="display:inline-flex;gap:5px;align-items:center;margin:0;font-weight:600;color:var(--ink)"><input type="checkbox" style="width:auto" ${a.enabled?"checked":""} onchange="post('/api/accounts/save',{id:${a.id},enabled:this.checked})">사용</label></div>
+    <div class="row" style="gap:10px">
+      <div style="flex:1;min-width:120px"><label>이름표</label><input id="acl${a.id}" value="${esc(a.label)}"></div>
+      <div style="flex:2;min-width:160px"><label>블로그 아이디 <span style="font-weight:400">(blog.naver.com/ 뒤)</span></label><input id="acb${a.id}" value="${esc(a.blog_id)}" placeholder="예: everysales_"></div>
+    </div>
+    <label>쇼핑커넥트 상품 목록 주소 <span style="font-weight:400">(이 계정으로 연 브랜드커넥트 화면 주소)</span></label>
+    <input id="acs${a.id}" value="${esc(a.sc_url)}" placeholder="https://brandconnect.naver.com/숫자/affiliate/products">
+    <div class="row" style="margin-top:10px">
+      <button class="btn sm primary" onclick="saveAcc(${a.id})">저장</button>
+      <button class="btn sm" onclick="post('/api/login',{account:${a.id}})">이 계정으로 로그인</button>
+      <span class="spacer"></span>
+      ${a.id>1?`<button class="btn ghost sm" onclick="if(confirm('${a.id}번 계정을 뺄까요?'))post('/api/accounts/remove',{id:${a.id}}).then(()=>{accDrawn=false})">빼기</button>`:""}
+    </div></div>`).join("");
+  accDrawn=true;
+}
+function saveAcc(n){ post('/api/accounts/save',{id:n, label:$("acl"+n).value, blog_id:$("acb"+n).value, sc_url:$("acs"+n).value}).then(()=>{accDrawn=false}); }
+
 /* ── 홈: 상태 문장 ── */
 function drawHero(){
-  const a=S.auto, c=S.counts, now=a.mode==="now";
-  const up = S.posts.filter(p=>p.status==="SCHEDULED" && new Date(p.scheduled_at)>new Date()).sort((x,y)=>x.scheduled_at<y.scheduled_at?-1:1);
+  const a=S.auto, c=acc(curAcc).counts, now=a.mode==="now";
+  const up = S.posts.filter(p=>p.account===curAcc && p.status==="SCHEDULED" && new Date(p.scheduled_at)>new Date()).sort((x,y)=>x.scheduled_at<y.scheduled_at?-1:1);
   let line;
   if(S.current) line = `${S.current}이에요.`;
   else if(!a.enabled) line = "자동 작성이 꺼져 있어요.";
@@ -434,7 +515,7 @@ function drawHero(){
 /* ── 홈: 7일 예약 타임라인 ── */
 function drawTimeline(){
   const today=new Date(); today.setHours(0,0,0,0);
-  const posts=S.posts.filter(p=>p.scheduled_at && ["SCHEDULED","PUBLISHED","WRITING"].includes(p.status));
+  const posts=S.posts.filter(p=>p.account===curAcc && p.scheduled_at && ["SCHEDULED","PUBLISHED","WRITING"].includes(p.status));
   let h=`<div></div>`;
   for(let d=0; d<7; d++){ const day=new Date(today); day.setDate(today.getDate()+d);
     h+=`<div class="h ${d===0?"today":""}">${d===0?"오늘":`${day.getMonth()+1}/${day.getDate()}`}<br><span style="font-weight:500">${DAYS[day.getDay()]}</span></div>`; }
@@ -456,30 +537,37 @@ function drawTimeline(){
 
 /* ── 홈: 확인할 것 ── */
 function drawTodo(){
-  const items=[], c=S.counts, sc=S.sc||{};
+  const items=[], c=acc(curAcc).counts, sc=S.sc||{};
   if(!S.settings.GEMINI_API_KEY) items.push(["t-red","API 키가 없어요","설정에서 Gemini API 키를 넣어주세요.","settings"]);
-  if(!S.logged_in) items.push(["t-red","로그인 필요","네이버 로그인을 해주세요.","settings"]);
+  (S.accounts||[]).forEach(x=>{
+    if(!x.blog_id) items.push(["t-red",`${x.label} 블로그 아이디`,"설정 › 블로그 계정에서 넣어주세요.","settings"]);
+    else if(!x.logged_in || x.login_bad) items.push(["t-red",`${x.label} 로그인 필요`,"설정 › 블로그 계정에서 로그인해 주세요.","settings"]);
+  });
   const failed=S.posts.filter(p=>p.status==="FAILED").length;
   if(failed) items.push(["t-red",`실패 ${failed}건`,"이유를 확인하거나 완료로 표시해 주세요.","posts"]);
-  if(c.info_since_shop>=c.ratio && !c.links_waiting) items.push(["t-amber","쇼핑글 차례","대기열에 링크를 넣어주세요.","shop"]);
+  (S.accounts||[]).forEach(x=>{ const k=x.counts;
+    if(k.info_since_shop>=k.ratio && !k.links_waiting) items.push(["t-amber",`${multi()?x.label+" ":""}쇼핑글 차례`,"대기열에 링크를 넣어주세요.","shop"]); });
   if((sc.items||[]).length) items.push(["t-amber",`추천 상품 ${sc.items.length}개`,"링크를 발급해서 붙여넣어 주세요.","shop"]);
   if(c.links_waiting) items.push(["t-live",`대기 링크 ${c.links_waiting}개`,"쇼핑글 차례에 차례로 써요.","shop"]);
   if(!items.length) items.push(["t-live","모두 괜찮아요","할 일이 없어요.",""]);
   $("todo").innerHTML=items.map(([t,a,b,p])=>`<li><span class="tag ${t}">${esc(a)}</span><span class="muted">${esc(b)}</span>${p?`<button class="btn sm go" onclick="go('${p}')">보기</button>`:""}</li>`).join("");
   const nb=(sc.items||[]).length + (c.info_since_shop>=c.ratio && !c.links_waiting ? 1:0);
   $("navShop").style.display = nb? "" : "none"; $("navShop").textContent = nb;
-  $("navSet").style.display = (!S.settings.GEMINI_API_KEY||!S.logged_in)? "" : "none";
+  $("navSet").style.display = (!S.settings.GEMINI_API_KEY || (S.accounts||[]).some(x=>!x.blog_id||!x.logged_in||x.login_bad))? "" : "none";
 }
 
 function render(){
   if(firstVersion===null) firstVersion=S.version;
   else if(S.version!==firstVersion){ location.reload(); return; }
   drawUpdate(S.update||{});
-  const a=S.auto, c=S.counts;
+  if(!acc(curAcc)) curAcc=1;
+  const a=S.auto, c=acc(curAcc).counts;
+  drawAccBars(); drawSet(); drawAccounts();
+  $("writeAcc").textContent = multi()? `→ ${acc(curAcc).label}` : "";
   const stCls = S.current? "busy" : a.enabled? "on" : "", stTx = S.current? S.current : a.enabled? "자동 켜짐"+(S.next_check?` · 다음 확인 ${S.next_check}`:"") : "자동 꺼짐";
   setState($("status"), stCls, stTx); setState($("statusM"), stCls, stTx);
   $("verM").textContent=`v${S.version}`;
-  $("blogName").textContent = S.settings.NAVER_BLOG_ID? `blog.naver.com/${S.settings.NAVER_BLOG_ID}` : "네이버 블로그";
+  $("blogName").textContent = multi()? `블로그 ${S.accounts.length}개` : (acc(1).blog_id? `blog.naver.com/${acc(1).blog_id}` : "네이버 블로그");
 
   drawHero(); drawTimeline(); drawTodo();
   $("enabled").checked=!!a.enabled;
@@ -498,17 +586,23 @@ function render(){
     ? (c.links_waiting? "다음 글은 쇼핑글이에요." : "쇼핑글 차례인데 대기열이 비어 있어서 정보글을 계속 써요.")
     : `정보글 ${c.ratio-c.info_since_shop}편 더 쓰면 쇼핑글 차례예요.`;
 
-  const ls=$("loginState"); ls.className="tag "+(S.logged_in?"t-live":"t-red"); ls.textContent=S.logged_in?"로그인 저장됨":"로그인 필요";
-  const n=[]; if(!S.settings.NAVER_BLOG_ID) n.push("설정에서 네이버 블로그 아이디를 넣어주세요.");
+  const n=[]; if(!acc(1).blog_id) n.push("설정 › 블로그 계정에서 네이버 블로그 아이디를 넣어주세요.");
   $("notices").innerHTML=n.map(x=>`<div class="notice">${esc(x)}</div>`).join("");
 
-  /* 링크 대기열 */
-  const LS={WAITING:["t-blue","대기"],USED:["t-grey","사용함"],FAILED:["t-red","실패"]};
-  $("links").innerHTML = S.links.length? S.links.map(l=>`<tr>
-    <td style="width:60px"><span class="tag ${(LS[l.status]||["t-grey",l.status])[0]}">${(LS[l.status]||["",l.status])[1]}</span></td>
-    <td><div style="word-break:break-all;font-size:13.5px">${esc(l.product_name||l.url)}</div>${l.memo?`<div class="note">메모: ${esc(l.memo)}</div>`:""}</td>
-    <td style="white-space:nowrap;text-align:right">${l.status==="FAILED"?`<button class="btn sm" onclick="post('/api/links/retry',{id:${l.id}})">다시</button> `:""}<button class="btn ghost sm" onclick="if(confirm('이 링크를 지울까요?'))post('/api/links/delete',{id:${l.id}})">지우기</button></td></tr>`).join("")
-    : `<tr><td class="muted">대기 중인 링크가 없어요.</td></tr>`;
+  /* 링크 대기열 (선택한 계정) */
+  const myLinks=S.links.filter(l=>l.account===curAcc);
+  $("links").innerHTML = myLinks.length? myLinks.map(l=>{
+    let tag, sub="";
+    if(l.status==="WAITING") tag=["t-blue","대기"];
+    else if(l.status==="FAILED") tag=["t-red","실패"];
+    else if(l.post_status==="WRITING") tag=["t-blue","사용 중"];
+    else if(l.post_status==="SCHEDULED"||l.post_status==="PUBLISHED"){ tag=["t-live","사용 완료"]; sub=`${esc(l.post_title||"")} · ${when(l.post_at)} ${l.post_status==="SCHEDULED"?"예약":"발행"}`; }
+    else tag=["t-grey","사용함"];
+    return `<tr>
+    <td style="width:76px"><span class="tag ${tag[0]}">${tag[1]}</span></td>
+    <td><div style="word-break:break-all;font-size:13.5px">${esc(l.product_name||l.url)}</div>${sub?`<div class="note">${sub}</div>`:""}${l.memo?`<div class="note">메모: ${esc(l.memo)}</div>`:""}</td>
+    <td style="white-space:nowrap;text-align:right">${l.status==="FAILED"?`<button class="btn sm" onclick="post('/api/links/retry',{id:${l.id}})">다시</button> `:""}<button class="btn ghost sm" onclick="if(confirm('이 링크를 지울까요?'))post('/api/links/delete',{id:${l.id}})">지우기</button></td></tr>`;}).join("")
+    : `<tr><td class="muted">${multi()? esc(acc(curAcc).label)+" ":""}대기열에 링크가 없어요.</td></tr>`;
 
   /* 글 목록 */
   $("postCount").textContent = `최근 ${S.posts.length}편`;
@@ -519,7 +613,7 @@ function render(){
     const btns = (p.status==="FAILED"? `<button class="btn sm" title="실제로는 올라갔는데 실패로 보이면 눌러주세요" onclick="post('/api/posts/mark_done',{id:${p.id}})">완료로 표시</button> `:"")
                + (p.status!=="WRITING"? `<button class="btn ghost sm" title="목록에서만 지워요" onclick="if(confirm('목록에서 지울까요? (블로그 글은 그대로예요)'))post('/api/posts/delete',{id:${p.id}})">✕</button>`:"");
     return `<tr>
-      <td class="kind ${p.kind}">${p.kind==="shop"?"쇼핑":"정보"}${p.auto?"":`<div class="note">수동</div>`}</td>
+      <td class="kind ${p.kind}">${p.kind==="shop"?"쇼핑":"정보"}${accLabel(p.account)}${p.auto?"":`<div class="note">수동</div>`}</td>
       <td>${esc(p.title||p.topic||"주제 고르는 중")}${p.post_url?` <a href="${esc(p.post_url)}" target="_blank">보기</a>`:""}${p.error?`<div class="err">${esc(p.error)}</div>`:""}${p.note?`<div class="note">${esc(p.note)}</div>`:""}</td>
       <td><span class="tag ${tag[0]}">${tag[1]}</span></td>
       <td style="white-space:nowrap">${p.scheduled_at?`<div style="font-size:13.5px">${when(p.scheduled_at)}</div><div class="note">${how}</div>`:"-"}</td>
@@ -613,19 +707,19 @@ function toggleAuto(on){ post("/api/auto",{enabled:on}).then(j=>{ if(j&&!j.ok) $
 function saveAuto(){ post("/api/auto",{per_day:+$("per_day").value, days_ahead:+$("days_ahead").value}); }
 function setMode(m){ post("/api/auto",{mode:m}); writeMode=m; }
 function setWriteMode(m){ writeMode=m; render(); }
-function writeNow(kind){ post("/api/write",{kind, mode: writeMode, topic: kind==="info"? $("topic").value : ""}).then(()=>{ $("topic").value=""; }); }
-function addLinks(){ post("/api/links",{text:$("linkText").value, memo:$("linkMemo").value}).then(j=>{ if(j&&j.ok){ $("linkText").value=""; $("linkMemo").value=""; } }); }
+function writeNow(kind){ post("/api/write",{kind, account: curAcc, mode: writeMode, topic: kind==="info"? $("topic").value : ""}).then(()=>{ $("topic").value=""; }); }
+function addLinks(){ post("/api/links",{text:$("linkText").value, memo:$("linkMemo").value, account: curAcc}).then(j=>{ if(j&&j.ok){ $("linkText").value=""; $("linkMemo").value=""; } }); }
 async function pasteSC(id){
   // 복사해 둔 링크를 바로 읽어서 대기열로 (브라우저가 '붙여넣기 허용'을 물으면 허용)
   try{
     $("lkrow"+id).style.display="";        // 혹시 몰라 칸도 같이 보여줌
     const t=((await Promise.race([navigator.clipboard.readText(), new Promise((_,no)=>setTimeout(()=>no(),8000))]))||"").trim();
-    if(/^https?:\/\/\S+$/.test(t)){ post('/api/sc/add',{id, url:t}); return; }
+    if(/^https?:\/\/\S+$/.test(t)){ post('/api/sc/add',{id, url:t, account: curAcc}); return; }
     toast("복사된 링크가 없어요. 쇼핑커넥트에서 [링크 발급] 후 링크를 복사해 주세요.");
   }catch(e){ /* 권한이 없으면 칸에 직접 붙여넣기 */ }
   $("lkrow"+id).style.display=""; $("lk"+id).focus();
 }
-function addSC(id){ const v=$("lk"+id).value.trim(); post('/api/sc/add',{id, url:v}).then(j=>{ if(j&&j.ok) $("lk"+id).value=""; }); }
+function addSC(id){ const v=$("lk"+id).value.trim(); post('/api/sc/add',{id, url:v, account: curAcc}).then(j=>{ if(j&&j.ok) $("lk"+id).value=""; }); }
 function saveCats(){ post("/api/trends/cats",{cats:[...document.querySelectorAll("#catpick input:checked")].map(e=>e.value)}); }
 function useKw(k){ go("home"); $("topic").value=k; $("topic").focus(); toast(`'${k}'를 정보글 주제로 넣었어요`); }
 function saveStyle(){ post("/api/style",{notes:$("styleNotes").value}); }

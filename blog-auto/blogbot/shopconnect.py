@@ -70,12 +70,12 @@ def recommend(keyword: str | None = None) -> list[dict]:
     return picked
 
 
-def add_link(product_id: str, url: str, memo: str = "") -> int:
+def add_link(product_id: str, url: str, memo: str = "", account: int = 1) -> int:
     """사용자가 직접 발급한 링크를 상품 이름과 함께 대기열에 넣음."""
     s = get()
     p = next((x for x in s.get("items", []) if x["id"] == product_id), None)
-    lid = db.run("INSERT INTO links(url, memo, status, product_name, created_at) VALUES(?,?, 'WAITING', ?, ?)",
-                 (url, memo or None, p["name"] if p else None, db.now()))
+    lid = db.run("INSERT INTO links(url, memo, status, product_name, account, created_at) VALUES(?,?, 'WAITING', ?, ?, ?)",
+                 (url, memo or None, p["name"] if p else None, account, db.now()))
     save(items=[x for x in s.get("items", []) if x["id"] != product_id], done_ids=s.get("done_ids", []) + [product_id])
     return lid
 

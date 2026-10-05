@@ -180,13 +180,19 @@ def check(force: bool = False) -> str:
                 return ""
         except ValueError:
             pass
-    blog_id = config.get("NAVER_BLOG_ID").strip()
-    if not blog_id:
-        return ""
+    save(last_check=now.isoformat(timespec="minutes"))
+    from . import accounts
+    out = [_check_one(a["id"], a["blog_id"], now) for a in accounts.active()]
+    return " / ".join(x for x in out if x) or "계정 없음"
+
+
+def _check_one(account: int, blog_id: str, now: dt.datetime) -> str:
+    """한 계정 블로그의 공개 글을 초안과 비교 (말투 메모는 모든 계정이 같이 씀)."""
+    s = get()
     cutoff = (now - dt.timedelta(hours=WAIT_HOURS)).isoformat(timespec="minutes")
     mine = db.q("SELECT id, title, body, scheduled_at FROM posts WHERE status IN ('SCHEDULED','PUBLISHED') "
-                "AND body IS NOT NULL AND learned IS NULL AND scheduled_at <= ? ORDER BY id DESC LIMIT 20", (cutoff,))
-    save(last_check=now.isoformat(timespec="minutes"))
+                "AND body IS NOT NULL AND learned IS NULL AND scheduled_at <= ? AND account = ? "
+                "ORDER BY id DESC LIMIT 20", (cutoff, account))
     if not mine:
         save(last_result="비교할 새 글이 아직 없어요 (공개 후 6시간 지난 글부터 비교해요)")
         return "새 글 없음"

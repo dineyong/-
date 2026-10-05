@@ -19,11 +19,11 @@ SLOT_WINDOWS = [(9, 11), (13, 16), (19, 22)]   # 오전 / 오후 / 저녁
 # ─────────────────────────────────────────────
 # 예약 시간 고르기 (지금부터 최소 1시간 뒤, 하루 per_day개, 칸마다 1개, 10분 단위)
 # ─────────────────────────────────────────────
-def pick_time(per_day: int, exclude_id: int | None = None, now: dt.datetime | None = None) -> dt.datetime:
+def pick_time(per_day: int, exclude_id: int | None = None, now: dt.datetime | None = None, account: int = 1) -> dt.datetime:
     now = now or dt.datetime.now()
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     rows = db.q("SELECT scheduled_at FROM posts WHERE status IN ('SCHEDULED','PUBLISHED') "
-                "AND scheduled_at >= ? AND id != ?", (today.isoformat(), exclude_id or -1))
+                "AND scheduled_at >= ? AND id != ? AND account = ?", (today.isoformat(), exclude_id or -1, account))
     times = [dt.datetime.fromisoformat(r["scheduled_at"]) for r in rows if r["scheduled_at"]]
     per_day = max(1, min(per_day, len(SLOT_WINDOWS)))
     for d in range(30):
@@ -71,9 +71,9 @@ def _finish(w: Writer, pid: int, frame, at: dt.datetime | None, title: str):
         log(f"   ℹ️ {note}")
 
 
-def _plan(pid: int, per_day: int, mode: str, title: str, sections: list) -> dt.datetime | None:
+def _plan(pid: int, per_day: int, mode: str, title: str, sections: list, account: int = 1) -> dt.datetime | None:
     """공개 시각 정하기 + 초안 저장 (실패해도 언제로 하려 했는지 남게)."""
-    at = pick_time(per_day, pid) if mode == "schedule" else None
+    at = pick_time(per_day, pid, account=account) if mode == "schedule" else None
     db.update_post(pid, mode=mode, title=title, body=title + "\n\n" + "\n\n".join(sections),
                    scheduled_at=(at or dt.datetime.now()).isoformat(timespec="minutes"))
     log(f"   ⏰ 공개 예정: {fmt(at)}" if at else "   🚀 바로 발행해요")
@@ -94,7 +94,7 @@ def pick_topic() -> str:
     return t
 
 
-def write_info(pid: int, per_day: int, mode: str = "schedule"):
+def write_info(pid: int, per_day: int, mode: str = "schedule", account: int = 1):
     row = db.one("SELECT * FROM posts WHERE id=?", (pid,))
     topic = (row or {}).get("topic") or pick_topic()
     db.update_post(pid, topic=topic)
@@ -111,7 +111,7 @@ def write_info(pid: int, per_day: int, mode: str = "schedule"):
         log(f"   🎯 독자: {st.get('reader', '-')} / 키워드: {st.get('mainKeyword', '-')}")
     db.update_post(pid, title=title)
 
-    w = Writer()
+    w = Writer(account)
     temp: list[str] = []
     try:
         v: dict = {}
@@ -126,7 +126,7 @@ def write_info(pid: int, per_day: int, mode: str = "schedule"):
         g = v.get
         slots = [[g("thumbnail")], [g("scene")], [g("checklist"), g("step1")], [g("step2")], [g("step3")],
                  [g("tip")], [g("faq"), g("fit")], [g("outro")]]
-        at = _plan(pid, per_day, mode, title, sections)
+        at = _plan(pid, per_day, mode, title, sections, account)
         frame = w.open_editor()
         w.title(frame, title)
         w.body(frame, None, slots, sections, tags)
@@ -139,12 +139,12 @@ def write_info(pid: int, per_day: int, mode: str = "schedule"):
 # ─────────────────────────────────────────────
 # 쇼핑커넥트 글
 # ─────────────────────────────────────────────
-def write_shop(pid: int, link_id: int, per_day: int, mode: str = "schedule"):
+def write_shop(pid: int, link_id: int, per_day: int, mode: str = "schedule", account: int = 1):
     link = db.one("SELECT * FROM links WHERE id=?", (link_id,))
     if not link:
         raise StopError("링크를 찾을 수 없어요.")
     log(f"🛒 쇼핑글 시작 — {link['url']}")
-    w = Writer()
+    w = Writer(account)
     temp: list[str] = []
     try:
         p = w.product(link["url"])
@@ -183,13 +183,13 @@ def write_shop(pid: int, link_id: int, per_day: int, mode: str = "schedule"):
         # 섹션: 도입, 제품정보, 결론, 장점①, 장점②, 체크, 아쉬운점, 추천, 가격 (+ 마무리 카드)
         slots = [[g("thumbnail") or ph(0)], [g("scene")], [ph(0)], [], [ph(1)], [ph(2)],
                  [g("checklist")], [ph(3)], [g("fit")], [g("outro")]]
-        at = _plan(pid, per_day, mode, title, sections)
+        at = _plan(pid, per_day, mode, title, sections, account)
         frame = w.open_editor()
         w.title(frame, title)
         lead = config.get("FTC_DISCLOSURE").replace("\\n", "\n") + "\n"   # 공정위 문구는 글 맨 위
         w.body(frame, lead, slots, sections, tags)
         _finish(w, pid, frame, at, title)
-        db.run("UPDATE links SET status='USED' WHERE id=?", (link_id,))
+        db.run("UPDATE links SET status='USED', used_post=?, used_at=? WHERE id=?", (pid, db.now(), link_id))
     finally:
         _cleanup(temp)
         w.close()

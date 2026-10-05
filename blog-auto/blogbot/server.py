@@ -8,7 +8,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import __version__, config, db, scheduler, shopconnect, style, trends, updater
+from . import __version__, accounts, config, db, scheduler, shopconnect, style, trends, updater
 from . import log as _logmod
 from .log import RECENT, log
 
@@ -37,33 +37,40 @@ def state() -> dict:
     return {
         "version": __version__,
         "auto": scheduler.get(),
-        "counts": scheduler.counts(),
+        "counts": scheduler.counts(1),
+        "accounts": [dict(a, login_bad=scheduler.login_bad(a["id"]), counts=scheduler.counts(a["id"]))
+                     for a in accounts.all()],
+        "batch": scheduler.state.get("batch"),
         "current": scheduler.state["current"],
         "next_check": scheduler.state["next_check"],
-        "logged_in": config.SESSION_FILE.exists(),
+        "logged_in": bool(scheduler.usable_accounts()),
         "settings": {k: (_mask(cfg.get(k, "")) if k == "GEMINI_API_KEY" else cfg.get(k, "")) for k in config.EDITABLE},
         "labels": config.EDITABLE,
-        "posts": db.q("SELECT id, kind, status, topic, title, scheduled_at, error, note, mode, post_url, auto, created_at FROM posts "
-                      "ORDER BY id DESC LIMIT 60"),
-        "links": db.q("SELECT id, url, memo, status, product_name, created_at FROM links "
-                      "ORDER BY CASE status WHEN 'WAITING' THEN 0 ELSE 1 END, id DESC LIMIT 100"),
+        "posts": db.q("SELECT id, kind, status, topic, title, scheduled_at, error, note, mode, post_url, auto, account, "
+                      "created_at FROM posts ORDER BY id DESC LIMIT 80"),
+        # 링크 + 그 링크로 쓴 글 (사용 완료 표시용)
+        "links": db.q("SELECT l.id, l.url, l.memo, l.status, l.product_name, l.account, l.created_at, l.used_at, "
+                      "p.id AS post_id, p.title AS post_title, p.status AS post_status, p.scheduled_at AS post_at "
+                      "FROM links l LEFT JOIN posts p ON p.id = l.used_post "
+                      "ORDER BY CASE l.status WHEN 'WAITING' THEN 0 ELSE 1 END, l.id DESC LIMIT 100"),
         "logs": _recent(),
         "style": style.get(),
         "update": updater.get(),
-        "sc": shopconnect.get(), "sc_ready": bool(config.shopping_connect_base()),
+        "sc": shopconnect.get(), "sc_ready": bool(accounts.get(1)["sc_base"]),
         "trends": trends.get(), "trend_cats": trends.CATS, "recon": scheduler.state.get("recon"),
         "old_project": str(old_project() or ""),
         "home": str(config.HOME),
     }
 
 
-def add_links(text: str, memo: str) -> int:
+def add_links(text: str, memo: str, account: int = 1) -> int:
     urls = re.findall(r"https?://[^\s<>\"']+", text or "")
     n = 0
     for u in dict.fromkeys(urls):
         if db.one("SELECT id FROM links WHERE url=? AND status='WAITING'", (u,)):
             continue
-        db.run("INSERT INTO links(url, memo, status, created_at) VALUES(?,?, 'WAITING', ?)", (u, memo or None, db.now()))
+        db.run("INSERT INTO links(url, memo, status, account, created_at) VALUES(?,?, 'WAITING', ?, ?)",
+               (u, memo or None, account, db.now()))
         n += 1
     return n
 
@@ -73,8 +80,8 @@ def handle(path: str, body: dict) -> dict:
         patch = {k: body[k] for k in ("enabled", "per_day", "days_ahead", "ratio", "mode") if k in body}
         if patch.get("enabled") and not config.get("GEMINI_API_KEY"):
             return {"ok": False, "msg": "먼저 설정에서 Gemini API 키를 넣어주세요."}
-        if patch.get("enabled") and not config.SESSION_FILE.exists():
-            return {"ok": False, "msg": "먼저 '네이버 로그인'을 해주세요."}
+        if patch.get("enabled") and not scheduler.usable_accounts():
+            return {"ok": False, "msg": "먼저 설정 › 블로그 계정에서 블로그 아이디와 네이버 로그인을 해주세요."}
         s = scheduler.save(**patch)
         if "enabled" in patch:
             log("▶️ 자동 작성 켜짐" if s["enabled"] else "⏸️ 자동 작성 꺼짐")
@@ -85,11 +92,35 @@ def handle(path: str, body: dict) -> dict:
         if not config.get("GEMINI_API_KEY"):
             return {"ok": False, "msg": "먼저 설정에서 Gemini API 키를 넣어주세요."}
         return {"ok": True, "msg": scheduler.request(body.get("kind"), (body.get("topic") or "").strip() or None,
-                                                      body.get("mode"))}
+                                                      body.get("mode"), int(body.get("account") or 1))}
     if path == "/api/login":
-        return {"ok": True, "msg": scheduler.run_login()}
+        return {"ok": True, "msg": scheduler.run_login(int(body.get("account") or 1))}
+    if path == "/api/batch/start":
+        if not config.get("GEMINI_API_KEY"):
+            return {"ok": False, "msg": "먼저 설정에서 Gemini API 키를 넣어주세요."}
+        return {"ok": True, "msg": scheduler.start_batch()}
+    if path == "/api/batch/stop":
+        return {"ok": True, "msg": scheduler.stop_batch()}
+    if path == "/api/accounts/save":
+        n = int(body["id"])
+        accounts.save(n, label=body.get("label"), blog_id=body.get("blog_id"), sc_url=body.get("sc_url"),
+                      enabled=body.get("enabled"))
+        log(f"👤 계정 저장: {accounts.name(n)}")
+        return {"ok": True, "msg": "저장했어요."}
+    if path == "/api/accounts/add":
+        try:
+            n = accounts.add()
+        except ValueError as e:
+            return {"ok": False, "msg": str(e)}
+        return {"ok": True, "msg": f"{n}번 계정 칸을 만들었어요. 블로그 아이디를 넣고 로그인해 주세요."}
+    if path == "/api/accounts/remove":
+        try:
+            accounts.remove(int(body["id"]))
+        except ValueError as e:
+            return {"ok": False, "msg": str(e)}
+        return {"ok": True, "msg": "계정을 뺐어요. (그 계정으로 쓴 글 기록은 남아 있어요)"}
     if path == "/api/links":
-        n = add_links(body.get("text", ""), body.get("memo", ""))
+        n = add_links(body.get("text", ""), body.get("memo", ""), int(body.get("account") or 1))
         return {"ok": n > 0, "msg": f"링크 {n}개를 대기열에 넣었어요." if n else "새 링크(https://…)를 찾지 못했어요."}
     if path == "/api/links/delete":
         db.run("DELETE FROM links WHERE id=?", (int(body["id"]),))
@@ -139,14 +170,14 @@ def handle(path: str, body: dict) -> dict:
         shopconnect.save(**{k: body[k] for k in ("min_reviews", "min_commission") if k in body})
         return {"ok": True, "msg": "저장했어요."}
     if path == "/api/sc/recommend":
-        if not config.shopping_connect_base():
+        if not accounts.get(1)["sc_base"]:
             return {"ok": False, "msg": "설정에 '쇼핑커넥트 상품 목록 주소'를 먼저 넣어주세요."}
         return {"ok": True, "msg": scheduler.run_recommend((body.get("keyword") or "").strip() or None)}
     if path == "/api/sc/add":
         url = (body.get("url") or "").strip()
         if not re.match(r"https?://\S+$", url):
             return {"ok": False, "msg": "발급받은 링크(https://…)를 붙여넣어 주세요."}
-        shopconnect.add_link(str(body.get("id")), url, body.get("memo") or "")
+        shopconnect.add_link(str(body.get("id")), url, body.get("memo") or "", int(body.get("account") or 1))
         return {"ok": True, "msg": "링크 대기열에 넣었어요. 쇼핑글 차례에 이 상품으로 써요."}
     if path == "/api/sc/clear":
         shopconnect.save(items=[])

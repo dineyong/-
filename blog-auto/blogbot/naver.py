@@ -19,7 +19,7 @@ from pathlib import Path
 
 from playwright.sync_api import Frame, Page, sync_playwright
 
-from . import config
+from . import accounts, config
 from .log import log
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -46,14 +46,14 @@ def fmt(d: dt.datetime) -> str:
 # ─────────────────────────────────────────────
 # 로그인 (사용자가 직접 로그인하는 창을 띄워 세션 저장)
 # ─────────────────────────────────────────────
-def login(timeout_s: int = 300) -> bool:
+def login(timeout_s: int = 300, account: int = 1) -> bool:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False, args=["--disable-blink-features=AutomationControlled"])
         ctx = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ko-KR", user_agent=UA)
         page = ctx.new_page()
         page.add_init_script("Object.defineProperty(navigator, 'webdriver', { get: () => false });")
         page.goto("https://nid.naver.com/nidlogin.login")
-        log("🔐 로그인 창을 열었어요. 네이버에 로그인해 주세요 (최대 5분).")
+        log(f"🔐 [{accounts.name(account)}] 로그인 창을 열었어요. 이 계정으로 네이버에 로그인해 주세요 (최대 5분).")
         ok = False
         end = time.time() + timeout_s
         while time.time() < end:
@@ -70,7 +70,7 @@ def login(timeout_s: int = 300) -> bool:
                 page.wait_for_timeout(2000)
             except Exception:
                 pass
-            ctx.storage_state(path=str(config.SESSION_FILE))
+            ctx.storage_state(path=str(accounts.session_file(account)))
             log("✅ 로그인 저장 완료 (보통 7~30일 유지)")
         else:
             log("⚠️ 로그인이 확인되지 않았어요.")
@@ -85,14 +85,16 @@ def login(timeout_s: int = 300) -> bool:
 # 글쓰기 세션 (브라우저 한 번 열어서 글 한 편)
 # ─────────────────────────────────────────────
 class Writer:
-    def __init__(self):
-        if not config.SESSION_FILE.exists():
-            raise LoginExpired("네이버 로그인이 필요해요. 대시보드에서 '네이버 로그인'을 눌러주세요.")
+    def __init__(self, account: int = 1):
+        self.account = account
+        self.session = accounts.session_file(account)
+        if not self.session.exists():
+            raise LoginExpired(f"[{accounts.name(account)}] 네이버 로그인이 필요해요. 설정 › 블로그 계정에서 로그인해 주세요.")
         self._pw = sync_playwright().start()
         self.browser = self._pw.chromium.launch(
             headless=False, slow_mo=80,
             args=["--disable-blink-features=AutomationControlled", "--disable-features=IsolateOrigins,site-per-process"])
-        self.ctx = self.browser.new_context(storage_state=str(config.SESSION_FILE),
+        self.ctx = self.browser.new_context(storage_state=str(self.session),
                                             viewport={"width": 1280, "height": 900}, locale="ko-KR", user_agent=UA)
         self.page = self.ctx.new_page()
         self.page.add_init_script(STEALTH)
@@ -248,14 +250,14 @@ class Writer:
     # ─────────────────────────────────────────
     def open_editor(self) -> Frame:
         log("📄 블로그 글쓰기 화면 열기")
-        blog_id = config.get("NAVER_BLOG_ID").strip()
+        blog_id = accounts.get(self.account)["blog_id"]
         if not blog_id or blog_id == "your_blog_id":
             raise StopError("블로그 아이디가 비어 있어요. 대시보드 → 설정에서 넣어주세요.")
         for url in (f"https://blog.naver.com/{blog_id}/postwrite", f"https://blog.naver.com/{blog_id}?Redirect=Write&"):
             self.check()
             self.page.goto(url, timeout=30000)
             if "nid.naver.com" in self.page.url:
-                raise LoginExpired("네이버 로그인이 풀렸어요. 대시보드에서 '네이버 로그인'을 다시 해주세요.")
+                raise LoginExpired(f"[{accounts.name(self.account)}] 네이버 로그인이 풀렸어요. 설정 › 블로그 계정에서 다시 로그인해 주세요.")
             frame = None
             end = time.time() + 20
             while time.time() < end and not frame:
@@ -766,7 +768,7 @@ def recon_shopping_connect(keyword: str) -> str:
 
     try:
         log(f"🔎 쇼핑커넥트 화면 살펴보기 (검색어: {keyword}) — 검색까지만 하고 아무것도 발급하지 않아요")
-        base = config.shopping_connect_base()
+        base = accounts.get(1)["sc_base"]
         if base:
             # 사용자가 알려준 상품 목록 화면으로 바로
             w.page.goto(base, timeout=30000)
@@ -867,7 +869,7 @@ BC = "https://brandconnect.naver.com"
 
 def _space_from(w: "Writer", reqs: list) -> str | None:
     """설정 주소 → 안 되면 로그인 계정의 공간 번호를 찾아 설정에 저장."""
-    base = config.shopping_connect_base()
+    base = accounts.get(w.account)["sc_base"]
     if base:
         w.page.goto(base, timeout=30000)
         w.page.wait_for_timeout(2500)
@@ -883,7 +885,7 @@ def _space_from(w: "Writer", reqs: list) -> str | None:
         w.page.goto(f"{BC}/{sp}/affiliate/products", timeout=30000)
         w.page.wait_for_timeout(2500)
         if f"/{sp}/affiliate" in w.page.url:
-            config.save({"SHOPPING_CONNECT_URL": f"{BC}/{sp}/affiliate/products"})
+            accounts.save(w.account, sc_url=f"{BC}/{sp}/affiliate/products")
             log(f"   🔗 이 계정의 쇼핑커넥트 공간을 찾아 설정에 저장했어요 ({sp})")
             return sp
     raise StopError("쇼핑커넥트 상품 화면을 열 수 없어요. 이 네이버 계정이 쇼핑커넥트에 승인됐는지 확인해 주세요.")
@@ -896,8 +898,8 @@ def _num(s: str) -> int:
 class ShoppingConnect:
     """로봇 브라우저 한 번 열어서 상품 검색 결과·상세(리뷰 수)를 읽기만 함."""
 
-    def __init__(self):
-        self.w = Writer()
+    def __init__(self, account: int = 1):
+        self.w = Writer(account)
         self.reqs: list[str] = []
 
         def on_req(r):

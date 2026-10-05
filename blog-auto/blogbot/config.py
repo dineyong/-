@@ -48,10 +48,8 @@ DEFAULTS: dict[str, str] = {
 # 대시보드에서 바꿀 수 있는 항목 (화면 표시 이름)
 EDITABLE = {
     "GEMINI_API_KEY": "Gemini API 키",
-    "NAVER_BLOG_ID": "네이버 블로그 아이디 (blog.naver.com/ 뒤 부분)",
     "BLOG_TOPIC": "정보글 주제 범위",
     "FTC_DISCLOSURE": "공정위 문구 (쇼핑글 맨 위)",
-    "SHOPPING_CONNECT_URL": "쇼핑커넥트 상품 목록 주소 (브랜드커넥트에서 상품 검색하는 화면 주소)",
 }
 
 _LINE = re.compile(r'^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$')
