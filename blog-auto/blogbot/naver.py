@@ -744,6 +744,17 @@ def recon_shopping_connect(keyword: str) -> str:
             pass
     w.page.on("request", on_req)
 
+    def on_resp(r):
+        try:
+            if "gw-brandconnect.naver.com" in r.url and "/query/me" in r.url:
+                t = r.text()[:2000]
+                # 개인정보는 빼고 계정 구분에 필요한 것만
+                ids = re.findall(r'"(?:creatorSpaceId|channelId|spaceId|id)"\s*:\s*"?(\d{6,})', t)
+                notes.append(f"query/me 응답의 번호들: {sorted(set(ids))[:10]}")
+        except Exception:
+            pass
+    w.page.on("response", on_resp)
+
     def links_now() -> list:
         out = []
         for f in w.page.frames:
@@ -760,6 +771,17 @@ def recon_shopping_connect(keyword: str) -> str:
             # 사용자가 알려준 상품 목록 화면으로 바로
             w.page.goto(base, timeout=30000)
             snap("products")
+            if "/about" in w.page.url:
+                # 그 채널 주소를 이 로그인 계정으로는 못 엶 → 이 계정의 크리에이터 공간 번호로 다시 시도
+                spaces = list(dict.fromkeys(re.findall(r"creator-spaces/(\d{6,})", "\n".join(reqs))))
+                notes.append(f"알려준 주소가 소개 페이지로 넘어감 (로그인 계정이 다른 채널일 수 있음). 이 계정의 공간 번호: {spaces}")
+                for sp in spaces[:2]:
+                    alt = f"https://brandconnect.naver.com/{sp}/affiliate/products"
+                    w.page.goto(alt, timeout=30000)
+                    snap("products-mine")
+                    if "/about" not in w.page.url:
+                        notes.append(f"이 계정 공간으로는 열림: {alt}")
+                        break
             if "nid.naver.com" in w.page.url:
                 notes.append("로그인 화면으로 넘어감 → 네이버 로그인 필요")
             else:
