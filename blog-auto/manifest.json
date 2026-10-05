@@ -1,8 +1,8 @@
 {
- "version": "1.4.0",
- "notes": "쇼핑커넥트 추천 상품 (수수료·리뷰 기준, 열기 → 직접 발급 → 붙여넣기)",
+ "version": "1.4.1",
+ "notes": "대시보드 새 디자인 (홈·글 목록·쇼핑·설정·기록 메뉴, 7일 예약 타임라인)",
  "files": {
-  "blogbot/__init__.py": "133cee375489b8ca3650746f71d1047956286a1b9297d7a8fbf2d90750f70f2d",
+  "blogbot/__init__.py": "3ae686d5477aaf3c01cc2fb41434d10aa3525ec4516704c8bc578ab230fb12d2",
   "blogbot/__main__.py": "d93ce8f71095dc4c43cf39b98672e3296bd8cd623a32719b8799d69b87ff4c50",
   "blogbot/ai.py": "626f3f40a6534c8d5f27b61893b1310ae00d260d69dce018197a0924f94a1d8a",
   "blogbot/config.py": "37981c96010a32911271478341e4b5f13189a304dd421a79ed2ea282f910ec96",
@@ -18,7 +18,7 @@
   "blogbot/text.py": "fd727cbe4d4aac883f72a18c167d3286d2c53852232eb6f61c6d5da75f539dab",
   "blogbot/trends.py": "8f4caae1ea7733b218f38a7b1340faf3b584817ce9f912fb3535ffefa8195c07",
   "blogbot/updater.py": "651a8112691166207085e1f3796182860538a4a79c5a601765ecd75c6da2bf78",
-  "blogbot/web/index.html": "2059972f0b6951f6d6d4a4729628e93a88485cc0f6c5b7dd52020f19bff4a12a",
+  "blogbot/web/index.html": "ee468ad5ec85530a5281a9f7c40f3244a12ce07215a9930ef748cc3e4a77ba30",
   "blogbot/writer.py": "2ce24b6110c2946618c41b94966d29f1bfeeda2ec8c1a9f2317d07bb6f360887"
  }
 }

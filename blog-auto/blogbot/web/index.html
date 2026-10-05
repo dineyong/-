@@ -4,430 +4,617 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>블로그 자동화</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
 :root{
-  --bg:#f6f4ef; --card:#fff; --ink:#26231f; --sub:#7a746b; --line:#e8e3d9;
-  --green:#2f9e6e; --green-bg:#e4f5ec; --red:#d64545; --red-bg:#fbe7e7;
-  --amber:#c9851b; --amber-bg:#fdf1dc; --blue:#3b6fd8; --blue-bg:#e6eefc; --accent:#26231f;
+  --canvas:#F2F5F3; --surface:#FFFFFF; --sunk:#F7F9F8; --ink:#17231E; --sub:#66756E; --faint:#9AA7A1; --line:#E1E7E4;
+  --live:#12A36B; --live-bg:#E3F5EC; --amber:#B97800; --amber-bg:#FBF0D6; --red:#D23F3F; --red-bg:#FBE5E5;
+  --blue:#2F6BD8; --blue-bg:#E5EDFB; --accent:#17231E; --on-accent:#FFFFFF;
+  --r-lg:16px; --r-md:10px; --r-sm:7px;
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#1b1a18; --card:#252321; --ink:#efebe4; --sub:#a39d93; --line:#3a3733;
-    --green-bg:#1f3a2d; --red-bg:#43201f; --amber-bg:#40321a; --blue-bg:#1f2b45; --accent:#efebe4;
+  :root{
+    --canvas:#111614; --surface:#1A201D; --sunk:#151B18; --ink:#E7EDEA; --sub:#98A69F; --faint:#6C7973; --line:#2A332F;
+    --live:#3CC68D; --live-bg:#173326; --amber:#E3AE3A; --amber-bg:#352A12; --red:#F07070; --red-bg:#3A1C1C;
+    --blue:#7AA5F2; --blue-bg:#1B2840; --accent:#E7EDEA; --on-accent:#111614;
   }
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic",sans-serif}
-header{display:flex;align-items:center;gap:12px;padding:18px 24px;max-width:1180px;margin:0 auto}
-header h1{font-size:20px;margin:0;font-weight:700}
-.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;font-size:13px;font-weight:600}
-.pill.on{background:var(--green-bg);color:var(--green)} .pill.off{background:var(--line);color:var(--sub)}
-.pill.busy{background:var(--blue-bg);color:var(--blue)} .pill.warn{background:var(--amber-bg);color:var(--amber)}
-.dot{width:8px;height:8px;border-radius:50%;background:currentColor}
-.spacer{flex:1}
-main{max-width:1180px;margin:0 auto;padding:0 24px 40px;display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
-.card h2{font-size:15px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
-.c4{grid-column:span 4}.c5{grid-column:span 5}.c7{grid-column:span 7}.c8{grid-column:span 8}.c12{grid-column:span 12}
-@media (max-width:900px){.c4,.c5,.c7,.c8{grid-column:span 12} header,main{padding-left:16px;padding-right:16px}}
-button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:8px 14px;cursor:pointer;font-weight:600}
-button:hover{border-color:var(--sub)} button.primary{background:var(--accent);color:var(--bg);border-color:var(--accent)}
-button.small{padding:3px 9px;font-size:12.5px;font-weight:500}
-button:disabled{opacity:.45;cursor:default}
-input,textarea,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px 10px;width:100%}
-textarea{resize:vertical}
-label{font-size:13px;color:var(--sub);display:block;margin:10px 0 4px}
+html,body{margin:0}
+body{background:var(--canvas);color:var(--ink);font:15px/1.6 "Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;
+     font-feature-settings:"tnum" 1;-webkit-font-smoothing:antialiased}
+a{color:var(--blue)}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--live);outline-offset:2px}
+
+/* ── 틀 ───────────────────────── */
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px;padding:22px 14px;border-right:1px solid var(--line);background:var(--surface)}
+.brand{font-weight:800;font-size:17px;letter-spacing:-.02em;padding:0 10px 14px}
+.brand small{display:block;font-weight:500;font-size:12px;color:var(--sub);letter-spacing:0}
+.nav button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;padding:9px 10px;border-radius:var(--r-md);
+            font-weight:600;color:var(--sub);cursor:pointer;text-align:left}
+.nav button:hover{background:var(--sunk);color:var(--ink)}
+.nav button.on{background:var(--canvas);color:var(--ink)}
+.nav .ic{width:22px;text-align:center}
+.nav .badge{margin-left:auto;font-size:11.5px;font-weight:700;background:var(--amber-bg);color:var(--amber);padding:0 7px;border-radius:99px}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:8px;padding:0 4px}
+.main{padding:28px 36px 60px;max-width:1120px;width:100%}
+.page{display:none}
+.page.on{display:block}
+.page h1{font-size:22px;letter-spacing:-.02em;margin:0 0 4px}
+.page .lead{color:var(--sub);margin:0 0 22px;font-size:14px}
+
+/* ── 공통 부품 ──────────────────── */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px 22px}
+.panel + .panel{margin-top:16px}
+.panel h2{font-size:15.5px;margin:0 0 4px;display:flex;align-items:center;gap:8px;letter-spacing:-.01em}
+.panel .desc{color:var(--sub);font-size:13.5px;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid2 > .panel + .panel{margin-top:0}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.big{font-size:30px;font-weight:700;line-height:1.1}
+.spacer{flex:1}
 .muted{color:var(--sub);font-size:13px}
-.switch{position:relative;width:52px;height:30px;flex:none}
-.switch input{display:none}
-.switch span{position:absolute;inset:0;background:var(--line);border-radius:99px;cursor:pointer;transition:.2s}
-.switch span:before{content:"";position:absolute;width:24px;height:24px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px #0003}
-.switch input:checked+span{background:var(--green)} .switch input:checked+span:before{transform:translateX(22px)}
-.bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin:8px 0}
-.bar i{display:block;height:100%;background:var(--green)}
-.ratio{display:flex;gap:6px;margin-top:6px}
-.ratio b{flex:1;height:26px;border-radius:7px;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--sub);font-weight:600}
-.ratio b.done{background:var(--blue-bg);color:var(--blue)} .ratio b.shop{background:var(--amber-bg);color:var(--amber)}
-table{width:100%;border-collapse:collapse;font-size:14px}
-th{text-align:left;color:var(--sub);font-weight:500;font-size:12.5px;padding:6px 8px;border-bottom:1px solid var(--line)}
-td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
-.tag{display:inline-block;padding:1px 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
-.SCHEDULED{background:var(--green-bg);color:var(--green)} .PUBLISHED{background:var(--blue-bg);color:var(--blue)}
-.FAILED{background:var(--red-bg);color:var(--red)} .WRITING{background:var(--amber-bg);color:var(--amber)}
-.WAITING{background:var(--blue-bg);color:var(--blue)} .USED{background:var(--line);color:var(--sub)}
-.k-info{color:var(--blue)} .k-shop{color:var(--amber)}
+label{display:block;font-size:12.5px;font-weight:600;color:var(--sub);margin:12px 0 5px}
+input,textarea,select{width:100%;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-md);padding:9px 11px}
+input:focus,textarea:focus,select:focus{border-color:var(--faint);outline:none}
+textarea{resize:vertical}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:var(--r-md);padding:8px 14px;font-weight:650;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--faint)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.sm{padding:4px 10px;font-size:12.5px;font-weight:600;border-radius:var(--r-sm)}
+.btn.ghost{border-color:transparent;background:none;color:var(--sub)}
+.btn.ghost:hover{color:var(--ink);background:var(--sunk)}
+.tag{display:inline-block;padding:1px 8px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap}
+.t-live{background:var(--live-bg);color:var(--live)} .t-amber{background:var(--amber-bg);color:var(--amber)}
+.t-red{background:var(--red-bg);color:var(--red)} .t-blue{background:var(--blue-bg);color:var(--blue)} .t-grey{background:var(--sunk);color:var(--sub)}
+.seg{display:inline-flex;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-md);padding:3px;gap:2px}
+.seg button{border:0;background:none;padding:6px 12px;border-radius:7px;font-weight:600;color:var(--sub);cursor:pointer;font-size:13.5px}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.notice{background:var(--amber-bg);color:var(--amber);border-radius:var(--r-md);padding:10px 14px;font-weight:600;font-size:14px;margin-bottom:10px}
 .err{color:var(--red);font-size:12.5px;margin-top:2px}
-.scroll{max-height:380px;overflow:auto}
-#logs{font:12.5px/1.6 ui-monospace,Menlo,monospace;background:var(--bg);border-radius:9px;padding:10px 12px;max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-all}
-#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--accent);color:var(--bg);padding:10px 18px;border-radius:10px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;max-width:90vw}
-#toast.show{opacity:1}
-.notice{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:10px 14px;font-weight:600;font-size:14px}
-.url{word-break:break-all;font-size:13px}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
-.seg button{border:0;border-radius:0;padding:6px 12px;font-weight:500;background:var(--card);color:var(--sub)}
-.seg button.on{background:var(--accent);color:var(--bg);font-weight:600}
 .note{color:var(--sub);font-size:12.5px;margin-top:2px}
-.DONE{background:var(--green-bg);color:var(--green)}
-.chips{display:flex;flex-wrap:wrap;gap:6px}
-.scgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
-.sccard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--bg)}
-.btnlink{display:inline-block;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);text-decoration:none;font-size:12.5px;font-weight:600}
-.btnlink:hover{border-color:var(--sub)}
-/* 업데이트 버튼 */
-.upd{display:inline-flex;align-items:center;gap:7px;padding:5px 12px 5px 10px;border-radius:99px;font-size:12.5px;font-weight:600;
-     border:1px solid var(--line);background:var(--card);color:var(--sub);transition:background .2s,color .2s,border-color .2s}
-.upd:hover{border-color:var(--sub);color:var(--ink)}
-.upd-ic{width:14px;height:14px;display:inline-grid;place-items:center;font-size:11px;line-height:1}
-.upd.ok .upd-ic{color:var(--green)}
-.upd.new{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 2px 10px rgba(47,158,110,.35)}
-.upd.new:hover{filter:brightness(1.05);color:#fff}
+.switch{position:relative;width:50px;height:28px;flex:none;cursor:pointer}
+.switch input{display:none}
+.switch span{position:absolute;inset:0;background:var(--line);border-radius:99px;transition:.2s}
+.switch span:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.switch input:checked+span{background:var(--live)} .switch input:checked+span:before{transform:translateX(22px)}
+
+/* 상태·업데이트 */
+.state{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:650;padding:8px 10px;border-radius:var(--r-md);background:var(--sunk);color:var(--sub)}
+.state .dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.state.on{color:var(--live);background:var(--live-bg)} .state.busy{color:var(--blue);background:var(--blue-bg)} .state.warn{color:var(--amber);background:var(--amber-bg)}
+.state.busy .dot{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.3}}
+.upd{display:flex;align-items:center;gap:7px;width:100%;padding:7px 10px;border-radius:var(--r-md);font-size:12.5px;font-weight:600;
+     border:1px solid var(--line);background:var(--surface);color:var(--sub);cursor:pointer;text-align:left}
+.upd:hover{border-color:var(--faint);color:var(--ink)}
+.upd-ic{width:14px;height:14px;display:inline-grid;place-items:center;font-size:11px;flex:none}
+.upd.ok .upd-ic{color:var(--live)}
+.upd.new{background:var(--live);border-color:var(--live);color:#fff}
 .upd.wait{background:var(--amber-bg);border-color:transparent;color:var(--amber)}
 .upd.err{background:var(--red-bg);border-color:transparent;color:var(--red)}
 .upd.busy .upd-ic{border:2px solid currentColor;border-right-color:transparent;border-radius:50%;width:11px;height:11px;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px solid var(--line);border-radius:99px;font-size:13px;background:var(--bg);cursor:pointer}
-.chip:hover{border-color:var(--sub)} .chip b{color:var(--sub);font-weight:500;font-size:11.5px}
-.chip.hot{border-color:var(--amber);background:var(--amber-bg)}
-.catpick label{display:inline-flex;gap:4px;align-items:center;margin:0 10px 0 0;color:var(--ink);font-size:13px}
+
+/* ── 홈: 상태 문장 + 예약 타임라인 ─── */
+.hero{display:flex;align-items:flex-start;gap:18px}
+.hero h1{font-size:24px;line-height:1.35;margin:0;letter-spacing:-.025em;flex:1}
+.hero .sub{color:var(--sub);font-size:14px;margin-top:6px}
+.tl{display:grid;grid-template-columns:64px repeat(7,1fr);gap:6px;margin-top:20px}
+.tl .h{font-size:12px;font-weight:700;color:var(--sub);text-align:center;padding-bottom:2px}
+.tl .h.today{color:var(--ink)}
+.tl .rl{font-size:12px;color:var(--sub);font-weight:600;display:flex;align-items:center}
+.slot{min-height:58px;border-radius:var(--r-md);border:1px dashed var(--line);padding:6px 7px;font-size:11.5px;line-height:1.35;color:var(--faint);overflow:hidden}
+.slot.past{opacity:.45}
+.slot.info{border:0;background:var(--live-bg);color:var(--ink)}
+.slot.shop{border:0;background:var(--amber-bg);color:var(--ink)}
+.slot.writing{border:1px solid var(--blue);background:var(--blue-bg);color:var(--ink)}
+.slot b{display:block;font-size:11.5px;color:var(--sub);font-weight:700}
+.slot .tt{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.legend{display:flex;gap:14px;margin-top:10px;font-size:12px;color:var(--sub)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.todo{list-style:none;margin:0;padding:0}
+.todo li{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.todo li:last-child{border-bottom:0}
+.todo .go{margin-left:auto}
+.ratio{display:flex;gap:5px;margin-top:6px}
+.ratio b{flex:1;height:24px;border-radius:6px;background:var(--sunk);display:flex;align-items:center;justify-content:center;font-size:11.5px;color:var(--faint);font-weight:700}
+.ratio b.done{background:var(--live-bg);color:var(--live)} .ratio b.shop{background:var(--amber-bg);color:var(--amber)}
+.logmini{font-size:12.5px;color:var(--sub);line-height:1.7;max-height:180px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+
+/* ── 표 ── */
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;color:var(--sub);font-weight:600;font-size:12.5px;padding:8px;border-bottom:1px solid var(--line)}
+td{padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.kind{font-weight:700;white-space:nowrap} .kind.info{color:var(--live)} .kind.shop{color:var(--amber)}
+
+/* ── 쇼핑 ── */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border:1px solid var(--line);border-radius:99px;font-size:13px;background:var(--surface);cursor:pointer}
+.chip:hover{border-color:var(--faint)} .chip b{color:var(--faint);font-weight:600;font-size:11.5px}
+.chip.hot{border-color:transparent;background:var(--amber-bg)}
+.catpick{display:flex;flex-wrap:wrap;gap:4px 14px;margin:4px 0 14px}
+.catpick label{display:inline-flex;gap:5px;align-items:center;margin:0;font-weight:500;color:var(--ink);font-size:13px}
 .catpick input{width:auto}
-.tcol h3{font-size:13px;margin:12px 0 6px;color:var(--sub);font-weight:600}
-a{color:var(--blue)}
-header button{white-space:nowrap}
-@media (max-width:600px){
-  header h1{font-size:17px} header{flex-wrap:wrap}
+.tcols{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.tcols h3{font-size:12.5px;margin:0 0 7px;color:var(--sub)}
+.scgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.sccard{border:1px solid var(--line);border-radius:var(--r-md);padding:14px;background:var(--sunk)}
+.sccard .nm{font-weight:700;margin:3px 0 8px;line-height:1.4}
+.btnlink{display:inline-block;padding:5px 11px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;font-size:12.5px;font-weight:650}
+.btnlink:hover{border-color:var(--faint)}
+.steps{display:flex;gap:6px;flex-wrap:wrap;font-size:13px;color:var(--sub);margin:-4px 0 14px}
+.steps span{background:var(--sunk);border-radius:6px;padding:2px 8px}
+
+/* ── 기록 ── */
+#logs{font:12.5px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--sunk);border-radius:var(--r-md);padding:12px 14px;max-height:68vh;overflow:auto;white-space:pre-wrap;word-break:break-all}
+details summary{cursor:pointer;color:var(--sub);font-size:13.5px;font-weight:600}
+
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(8px);background:var(--accent);color:var(--on-accent);padding:10px 18px;border-radius:var(--r-md);
+       font-weight:600;opacity:0;transition:.2s;pointer-events:none;max-width:90vw;z-index:20}
+#toast.show{opacity:1;transform:translateX(-50%)}
+
+/* ── 휴대폰 ── */
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .main{min-width:0}
+  .side{position:fixed;bottom:0;top:auto;left:0;right:0;height:auto;flex-direction:row;padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-right:0;border-top:1px solid var(--line);z-index:10}
+  .brand,.side-foot{display:none}
+  .nav{display:flex;width:100%}
+  .nav button{flex-direction:column;gap:2px;font-size:11.5px;padding:6px 2px;justify-content:center;text-align:center}
+  .nav .badge{display:none}
+  .main{padding:18px 16px 96px}
+  .mobile-top{display:flex!important}
+  .grid2{grid-template-columns:1fr}
+  .hero h1{font-size:20px}
+  .tl{grid-template-columns:34px repeat(7,minmax(0,1fr));gap:4px}
+  .tl .h{font-size:11px}
+  .slot{min-height:44px;font-size:10px;padding:4px 3px}
+  .slot b{font-size:10px}
+  .slot .tt{display:none}
   #postsTable thead{display:none}
-  #postsTable tr{display:grid;grid-template-columns:auto auto 1fr auto;gap:2px 10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+  #postsTable tr{display:grid;grid-template-columns:auto auto 1fr auto;gap:2px 10px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center}
   #postsTable td{border:0;padding:0}
   #postsTable td:nth-child(2){grid-column:1/-1;order:-1}
 }
+.mobile-top{display:none;gap:8px;margin-bottom:14px;align-items:center}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-<header>
-  <h1>📝 블로그 자동화</h1>
-  <span id="status" class="pill off"><span class="dot"></span><span>불러오는 중</span></span>
-  <button id="upd" class="upd" onclick="checkUpdate()"><span class="upd-ic" id="updIc"></span><span id="updText">v…</span></button>
-  <span class="spacer"></span>
-  <button onclick="post('/api/open_folder')">📁 데이터 폴더</button>
-  <button onclick="quitApp()">종료</button>
-</header>
-
-<main>
-  <div class="c12" id="notices"></div>
-
-  <!-- 자동 작성 -->
-  <section class="card c5">
-    <h2>⏱️ 자동 작성</h2>
-    <div class="row" style="justify-content:space-between">
-      <div>
-        <div class="big" id="upcoming">0 / 0</div>
-        <div class="muted" id="upLabel">앞으로 예약된 글 / 목표</div>
+<div class="app">
+  <aside class="side">
+    <div class="brand">블로그 자동화<small id="blogName">네이버 블로그</small></div>
+    <nav class="nav" id="nav">
+      <button data-p="home" class="on"><span class="ic">🏠</span>홈</button>
+      <button data-p="posts"><span class="ic">📚</span>글 목록</button>
+      <button data-p="shop"><span class="ic">🛍️</span>쇼핑<span class="badge" id="navShop" style="display:none"></span></button>
+      <button data-p="settings"><span class="ic">⚙️</span>설정<span class="badge" id="navSet" style="display:none">!</span></button>
+      <button data-p="logs"><span class="ic">🧾</span>기록</button>
+    </nav>
+    <div class="side-foot">
+      <div class="state" id="status"><span class="dot"></span><span>불러오는 중</span></div>
+      <button id="upd" class="upd" onclick="checkUpdate()"><span class="upd-ic" id="updIc"></span><span id="updText">v…</span></button>
+      <div class="row" style="gap:4px">
+        <button class="btn ghost sm" onclick="post('/api/open_folder')">데이터 폴더</button>
+        <span class="spacer"></span>
+        <button class="btn ghost sm" onclick="quitApp()">종료</button>
       </div>
-      <label class="switch" title="켜기/끄기"><input type="checkbox" id="enabled" onchange="toggleAuto(this.checked)"><span></span></label>
     </div>
-    <div class="bar"><i id="bar" style="width:0"></i></div>
-    <div class="muted" id="autoMsg">-</div>
-    <label>발행 방식</label>
-    <div class="seg" id="modeSeg">
-      <button data-m="schedule" onclick="setMode('schedule')">⏰ 예약 발행</button>
-      <button data-m="now" onclick="setMode('now')">🚀 즉시 발행</button>
-    </div>
-    <div class="muted" id="modeHint" style="margin-top:4px"></div>
-    <div class="row" style="margin-top:6px">
-      <div style="flex:1"><label>하루 몇 편</label>
-        <select id="per_day" onchange="saveAuto()"><option>1</option><option>2</option><option>3</option></select></div>
-      <div style="flex:1" id="daysBox"><label>며칠치 미리 예약</label>
-        <select id="days_ahead" onchange="saveAuto()"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></div>
-    </div>
-    <label>다음 글 순서 (정보글 <span id="ratioN">3</span>편마다 쇼핑글 1편)</label>
-    <div class="ratio" id="ratio"></div>
-    <div class="muted" id="ratioHint" style="margin-top:6px"></div>
-  </section>
+  </aside>
 
-  <!-- 지금 쓰기 + 로그인 -->
-  <section class="card c7">
-    <h2>✍️ 지금 1편 쓰기</h2>
-    <div class="muted">자동과 상관없이 바로 1편을 써요. 로봇 브라우저 창이 뜨면 닫지 말아주세요.</div>
-    <label>이 글은</label>
-    <div class="seg" id="writeSeg">
-      <button data-m="schedule" onclick="setWriteMode('schedule')">⏰ 빈 예약 칸에 예약</button>
-      <button data-m="now" onclick="setWriteMode('now')">🚀 지금 바로 발행</button>
-    </div>
-    <label>정보글 주제 (비우면 AI가 골라요)</label>
-    <input id="topic" placeholder="예: 겨울 이불 세탁 주기">
-    <div class="row" style="margin-top:10px">
-      <button class="primary" onclick="writeNow('info')">정보글 쓰기</button>
-      <button onclick="writeNow('shop')">쇼핑글 쓰기 (대기열 첫 링크)</button>
-      <button onclick="writeNow('auto')">순서대로</button>
-    </div>
-    <div style="border-top:1px solid var(--line);margin:16px 0 12px"></div>
-    <h2>🔐 네이버 로그인</h2>
-    <div class="row">
-      <span id="loginState" class="pill off"><span class="dot"></span><span>-</span></span>
-      <button onclick="post('/api/login')">네이버 로그인 창 열기</button>
-    </div>
-    <div class="muted" style="margin-top:6px">창이 열리면 직접 로그인하세요. 로그인되면 저장되고 창은 저절로 닫혀요 (보통 1~4주 유지).</div>
-  </section>
+  <main class="main">
+    <div class="mobile-top"><div class="state" id="statusM" style="flex:1"><span class="dot"></span><span>-</span></div>
+      <button class="btn sm" onclick="checkUpdate()" id="verM">v</button></div>
+    <div id="notices"></div>
 
-  <!-- 인기 키워드 -->
-  <section class="card c12">
-    <h2>🔥 오늘의 인기 키워드 <span class="muted" style="font-weight:400" id="trendInfo"></span>
-      <span class="spacer"></span><button class="small" onclick="post('/api/trends/refresh')">다시 모으기</button></h2>
-    <div class="muted">네이버 데이터랩 쇼핑 인기 검색어예요 (하루 한 번 자동). 🔥는 새로 오르거나 5계단 이상 오른 키워드. 누르면 그 키워드로 정보글 주제를 채워요. 정보글 주제를 고를 때도 AI가 참고해요.</div>
-    <div class="catpick" id="catpick" style="margin:10px 0"></div>
-    <div id="trendList" class="row" style="align-items:flex-start;gap:18px"></div>
-    <div style="border-top:1px solid var(--line);margin:16px 0 12px"></div>
-    <h2>🛍️ 쇼핑커넥트 추천 상품 <span class="muted" style="font-weight:400" id="scInfo"></span>
-      <span class="spacer"></span><button class="small" onclick="post('/api/sc/recommend')">다시 고르기</button></h2>
-    <div class="muted">인기 키워드로 쇼핑커넥트를 검색해서 <b>수수료 높고 리뷰 많은</b> 상품을 골라둬요 (하루 한 번, 읽기만 해요). 
-      <b>① [쇼핑커넥트에서 열기]</b> → 열린 화면에서 직접 <b>[링크 발급]</b> → <b>② 받은 링크를 옆 칸에 붙여넣기</b> 하면 쇼핑글 대기열에 들어가요.</div>
-    <div class="row" style="margin-top:10px;gap:14px;align-items:flex-end">
-      <div style="width:120px"><label>최소 리뷰 수</label><input id="scRev" type="number" min="0" step="50" onchange="post('/api/sc/settings',{min_reviews:+this.value})"></div>
-      <div style="width:120px"><label>최소 수수료 %</label><input id="scCom" type="number" min="0" max="30" onchange="post('/api/sc/settings',{min_commission:+this.value})"></div>
-      <div style="flex:1;min-width:200px"><label>직접 키워드로 찾기 (선택)</label>
-        <div class="row"><input id="scKw" placeholder="예: 비데" style="max-width:200px"><button onclick="post('/api/sc/recommend',{keyword:$('scKw').value})">찾기</button></div></div>
-    </div>
-    <div id="scList" style="margin-top:12px"></div>
-    <details style="margin-top:12px"><summary class="muted" style="cursor:pointer">문제가 생기면: 쇼핑커넥트 화면 살펴보기</summary>
-      <div class="muted" style="margin:6px 0">로봇이 쇼핑커넥트를 열어 검색까지만 하고 화면을 저장해요. 생긴 zip을 Claude에게 보내주세요.</div>
-      <div class="row">
-        <input id="reconKw" placeholder="검색해볼 키워드 (비우면 인기 1위)" style="max-width:260px">
-        <button onclick="post('/api/recon',{keyword:$('reconKw').value})">화면 살펴보기</button>
-        <button id="reconOpen" style="display:none" onclick="post('/api/open_recon')">📦 저장된 파일 열기</button>
+    <!-- ═════════ 홈 ═════════ -->
+    <section class="page on" id="p-home">
+      <div class="panel">
+        <div class="hero">
+          <div style="flex:1">
+            <h1 id="heroLine">불러오는 중…</h1>
+            <div class="sub" id="autoMsg"></div>
+          </div>
+          <label class="switch" title="자동 작성 켜기/끄기" style="margin:4px 0 0"><input type="checkbox" id="enabled" onchange="toggleAuto(this.checked)"><span></span></label>
+        </div>
+        <div class="tl" id="timeline"></div>
+        <div class="legend"><span><i style="background:var(--live-bg)"></i>정보글</span><span><i style="background:var(--amber-bg)"></i>쇼핑글</span><span><i style="background:var(--blue-bg);border:1px solid var(--blue)"></i>작성 중</span><span><i style="border:1px dashed var(--faint)"></i>빈 시간</span></div>
       </div>
-    </details>
-  </section>
 
-  <!-- 쇼핑 링크 -->
-  <section class="card c5">
-    <h2>🛒 쇼핑커넥트 링크 대기열</h2>
-    <label>링크 붙여넣기 (여러 개면 줄마다 하나씩)</label>
-    <textarea id="linkText" rows="3" placeholder="https://naver.me/..."></textarea>
-    <label>직접 써본 메모 (선택 — 비우면 경험담 없이 정보 위주로 써요)</label>
-    <input id="linkMemo" placeholder="예: 2주째 사용 중, 생각보다 가벼움">
-    <div class="row" style="margin-top:10px"><button class="primary" onclick="addLinks()">대기열에 넣기</button></div>
-    <div class="scroll" style="margin-top:12px"><table><tbody id="links"></tbody></table></div>
-  </section>
+      <div class="grid2" style="margin-top:16px">
+        <div class="panel">
+          <h2>자동 작성 방식</h2>
+          <p class="desc" id="modeHint"></p>
+          <div class="seg" id="modeSeg">
+            <button data-m="schedule" onclick="setMode('schedule')">⏰ 예약 발행</button>
+            <button data-m="now" onclick="setMode('now')">🚀 즉시 발행</button>
+          </div>
+          <div class="row" style="gap:12px">
+            <div style="flex:1"><label>하루 몇 편</label>
+              <select id="per_day" onchange="saveAuto()"><option>1</option><option>2</option><option>3</option></select></div>
+            <div style="flex:1" id="daysBox"><label>며칠치 미리 예약</label>
+              <select id="days_ahead" onchange="saveAuto()"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></div>
+          </div>
+          <label>다음 글 순서 · 정보글 <span id="ratioN">3</span>편마다 쇼핑글 1편</label>
+          <div class="ratio" id="ratio"></div>
+          <div class="muted" id="ratioHint" style="margin-top:6px"></div>
+        </div>
 
-  <!-- 글 목록 -->
-  <section class="card c7">
-    <h2>📚 글 목록 <span class="spacer"></span><button class="small" onclick="clearFailed()">실패 기록 지우기</button></h2>
-    <div class="scroll">
-      <table id="postsTable">
-        <thead><tr><th>종류</th><th>제목 / 주제</th><th>상태</th><th>발행</th><th></th></tr></thead>
-        <tbody id="posts"></tbody>
-      </table>
-    </div>
-  </section>
+        <div class="panel">
+          <h2>지금 1편 쓰기</h2>
+          <p class="desc">자동과 상관없이 바로 1편을 써요. 로봇 크롬 창이 뜨면 닫지 마세요.</p>
+          <div class="seg" id="writeSeg">
+            <button data-m="schedule" onclick="setWriteMode('schedule')">빈 시간에 예약</button>
+            <button data-m="now" onclick="setWriteMode('now')">지금 바로 발행</button>
+          </div>
+          <label>정보글 주제 <span style="font-weight:400">(비우면 AI가 골라요)</span></label>
+          <input id="topic" placeholder="예: 겨울 이불 세탁 주기">
+          <div class="row" style="margin-top:12px">
+            <button class="btn primary" onclick="writeNow('info')">정보글 쓰기</button>
+            <button class="btn" onclick="writeNow('shop')">쇼핑글 쓰기</button>
+            <button class="btn ghost" onclick="writeNow('auto')">순서대로</button>
+          </div>
+        </div>
+      </div>
 
-  <!-- 설정 -->
-  <section class="card c5">
-    <h2>⚙️ 설정</h2>
-    <div id="settings"></div>
-    <div class="row" style="margin-top:12px"><button class="primary" onclick="saveSettings()">저장</button></div>
-    <div style="border-top:1px solid var(--line);margin:18px 0 12px"></div>
-    <h2>🗣️ 말투 메모 <span class="muted" style="font-weight:400">(자동 학습)</span></h2>
-    <div class="muted">공개된 글을 6시간마다 확인해서, 직접 고치신 부분을 보고 말투를 배워 여기에 적어요. 다음 글부터 반영돼요. 직접 고쳐도 돼요.</div>
-    <textarea id="styleNotes" rows="5" style="margin-top:8px" placeholder="아직 배운 게 없어요. 예약된 글을 폰에서 고치면, 공개 후 그 차이를 보고 여기에 정리돼요."></textarea>
-    <div class="muted" id="styleInfo" style="margin-top:4px"></div>
-    <div class="row" style="margin-top:8px">
-      <button onclick="saveStyle()">메모 저장</button>
-      <button onclick="post('/api/style/check')">지금 확인하기</button>
-    </div>
-    <div id="importBox" style="margin-top:14px;display:none">
-      <div class="muted">예전 프로그램 폴더가 있어요. API 키·블로그 아이디·로그인을 가져올 수 있어요.</div>
-      <button style="margin-top:6px" onclick="post('/api/import',{})">예전 프로그램에서 가져오기</button>
-    </div>
-  </section>
+      <div class="grid2" style="margin-top:16px">
+        <div class="panel">
+          <h2>확인할 것</h2>
+          <ul class="todo" id="todo"></ul>
+        </div>
+        <div class="panel">
+          <h2>최근 기록 <span class="spacer"></span><button class="btn ghost sm" onclick="go('logs')">전체 보기</button></h2>
+          <div class="logmini" id="logMini"></div>
+        </div>
+      </div>
+    </section>
 
-  <!-- 기록 -->
-  <section class="card c7">
-    <h2>🧾 작업 기록</h2>
-    <div id="logs"></div>
-  </section>
-</main>
+    <!-- ═════════ 글 목록 ═════════ -->
+    <section class="page" id="p-posts">
+      <h1>글 목록</h1>
+      <p class="lead">이 프로그램이 쓴 글이에요. 목록에서 지워도 블로그 글은 그대로예요.</p>
+      <div class="panel">
+        <div class="row" style="margin-bottom:6px"><span class="muted" id="postCount"></span><span class="spacer"></span>
+          <button class="btn sm" onclick="clearFailed()">실패 기록 지우기</button></div>
+        <table id="postsTable">
+          <thead><tr><th>종류</th><th>제목</th><th>상태</th><th>발행</th><th></th></tr></thead>
+          <tbody id="posts"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═════════ 쇼핑 ═════════ -->
+    <section class="page" id="p-shop">
+      <h1>쇼핑커넥트</h1>
+      <p class="lead">정보글 <span class="ratioN2">3</span>편마다 쇼핑글 1편을, 링크 대기열의 링크로 써요.</p>
+
+      <div class="panel">
+        <h2>추천 상품 <span class="muted" style="font-weight:500" id="scInfo"></span><span class="spacer"></span>
+          <button class="btn sm" onclick="post('/api/sc/recommend')">다시 고르기</button></h2>
+        <p class="desc">인기 키워드로 검색해서 수수료 높고 리뷰 많은 상품을 하루 한 번 골라둬요. 상품 정보만 읽고, 링크는 직접 발급해요.</p>
+        <div class="steps"><span>① 쇼핑커넥트에서 열기</span><span>② 그 화면에서 [링크 발급]</span><span>③ 링크 붙여넣기 → 대기열</span></div>
+        <div id="scList"></div>
+        <details style="margin-top:14px"><summary>추천 기준 · 직접 키워드로 찾기</summary>
+          <div class="row" style="gap:12px;align-items:flex-end">
+            <div style="width:130px"><label>최소 리뷰 수</label><input id="scRev" type="number" min="0" step="50" onchange="post('/api/sc/settings',{min_reviews:+this.value})"></div>
+            <div style="width:130px"><label>최소 수수료 %</label><input id="scCom" type="number" min="0" max="30" onchange="post('/api/sc/settings',{min_commission:+this.value})"></div>
+            <div style="flex:1;min-width:220px"><label>키워드로 찾기</label>
+              <div class="row"><input id="scKw" placeholder="예: 비데" style="max-width:220px"><button class="btn" onclick="post('/api/sc/recommend',{keyword:$('scKw').value})">찾기</button></div></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="grid2" style="margin-top:16px">
+        <div class="panel">
+          <h2>링크 대기열</h2>
+          <p class="desc">쇼핑글 차례가 되면 위에서부터 하나씩 써요.</p>
+          <label style="margin-top:0">링크 붙여넣기 <span style="font-weight:400">(여러 개면 줄마다 하나씩)</span></label>
+          <textarea id="linkText" rows="2" placeholder="https://naver.me/..."></textarea>
+          <label>직접 써본 메모 <span style="font-weight:400">(선택 — 비우면 경험담 없이 정보 위주로 써요)</span></label>
+          <input id="linkMemo" placeholder="예: 2주째 사용 중, 생각보다 가벼움">
+          <div class="row" style="margin-top:10px"><button class="btn primary" onclick="addLinks()">대기열에 넣기</button></div>
+          <table style="margin-top:12px"><tbody id="links"></tbody></table>
+        </div>
+        <div class="panel">
+          <h2>🔥 오늘의 인기 키워드</h2>
+          <p class="desc"><span id="trendInfo"></span> 누르면 정보글 주제로 넣어요. 🔥는 새로 오르거나 5계단 이상 오른 키워드예요.</p>
+          <div id="trendList" class="tcols"></div>
+          <details style="margin-top:14px"><summary>분야 고르기</summary>
+            <div class="catpick" id="catpick" style="margin-top:10px"></div>
+            <button class="btn sm" onclick="post('/api/trends/refresh')">지금 다시 모으기</button>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════════ 설정 ═════════ -->
+    <section class="page" id="p-settings">
+      <h1>설정</h1>
+      <p class="lead">한 번 넣어두면 돼요. 내 컴퓨터(홈 › BlogAuto)에만 저장돼요.</p>
+      <div class="grid2">
+        <div class="panel">
+          <h2>기본 설정</h2>
+          <div id="settings"></div>
+          <div class="row" style="margin-top:14px"><button class="btn primary" onclick="saveSettings()">저장</button></div>
+          <div id="importBox" style="margin-top:14px;display:none">
+            <div class="muted">예전 프로그램 폴더가 있어요. API 키·블로그 아이디·로그인을 가져올 수 있어요.</div>
+            <button class="btn sm" style="margin-top:6px" onclick="post('/api/import',{})">예전 프로그램에서 가져오기</button>
+          </div>
+        </div>
+        <div>
+          <div class="panel">
+            <h2>네이버 로그인</h2>
+            <p class="desc">창이 열리면 직접 로그인하세요. 저장되면 창은 저절로 닫혀요 (보통 1~4주 유지).</p>
+            <div class="row"><span class="tag" id="loginState">-</span><span class="spacer"></span>
+              <button class="btn" onclick="post('/api/login')">로그인 창 열기</button></div>
+          </div>
+          <div class="panel">
+            <h2>말투 메모 <span class="muted" style="font-weight:500">자동 학습</span></h2>
+            <p class="desc">공개된 글을 6시간마다 확인해서, 직접 고치신 부분을 보고 말투를 배워요. 다음 글부터 반영되고, 직접 고쳐도 돼요.</p>
+            <textarea id="styleNotes" rows="5" placeholder="아직 배운 게 없어요. 예약된 글을 폰에서 고치면, 공개 후 그 차이를 보고 여기에 정리돼요."></textarea>
+            <div class="muted" id="styleInfo" style="margin-top:6px"></div>
+            <div class="row" style="margin-top:10px">
+              <button class="btn" onclick="saveStyle()">메모 저장</button>
+              <button class="btn ghost" onclick="post('/api/style/check')">지금 확인하기</button>
+            </div>
+          </div>
+          <div class="panel">
+            <h2>문제 해결</h2>
+            <p class="desc">쇼핑커넥트 화면이 바뀌어 추천이 안 될 때, 로봇이 화면을 열어 검색까지만 하고 저장해요. 생긴 zip을 Claude에게 보내주세요.</p>
+            <div class="row">
+              <input id="reconKw" placeholder="검색해볼 키워드 (비우면 인기 1위)" style="flex:1;min-width:160px">
+              <button class="btn" onclick="post('/api/recon',{keyword:$('reconKw').value})">화면 살펴보기</button>
+              <button class="btn ghost" id="reconOpen" style="display:none" onclick="post('/api/open_recon')">저장된 파일 열기</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════════ 기록 ═════════ -->
+    <section class="page" id="p-logs">
+      <h1>작업 기록</h1>
+      <p class="lead">무슨 일을 했는지 시간순으로 남아요. 오류가 나면 이 내용을 Claude에게 보여주세요.</p>
+      <div class="panel"><div id="logs"></div></div>
+    </section>
+  </main>
+</div>
 <div id="toast"></div>
 
 <script>
-let S = null, settingsDrawn = false, styleDrawn = false, writeMode = null;
+let S = null, settingsDrawn = false, styleDrawn = false, writeMode = null, scDrawn=false, updLocalBusy=0, firstVersion=null;
 const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const STATUS = {SCHEDULED:"완료", PUBLISHED:"완료", FAILED:"실패", WRITING:"작성 중", READY:"대기", WAITING:"대기", USED:"사용함"};
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const DAYS=["일","월","화","수","목","금","토"];
+const SLOTS=[["오전",9,11],["오후",13,16],["저녁",19,22]];
+
+/* 탭 */
+function go(p){
+  document.querySelectorAll(".page").forEach(e=>e.classList.toggle("on", e.id==="p-"+p));
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on", b.dataset.p===p));
+  try{ localStorage.setItem("tab", p); }catch(e){}
+  window.scrollTo(0,0);
+}
+document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>go(b.dataset.p));
+try{ const t=localStorage.getItem("tab"); if(t && $("p-"+t)) go(t); }catch(e){}
 
 function toast(msg){ if(!msg) return; const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),3500); }
-
 async function post(path, body={}){
   try{
     const r = await fetch(path,{method:"POST",headers:{"Content-Type":"application/json","X-Blogbot":"1"},body:JSON.stringify(body)});
     const j = await r.json(); toast(j.msg); refresh(); return j;
   }catch(e){ toast("프로그램과 연결이 끊겼어요. 앱을 다시 켜주세요."); }
 }
-
 function when(iso){
   if(!iso) return "-";
-  const d = new Date(iso); const days=["일","월","화","수","목","금","토"];
-  return `${d.getMonth()+1}/${d.getDate()}(${days[d.getDay()]}) ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  const d = new Date(iso);
+  return `${d.getMonth()+1}/${d.getDate()}(${DAYS[d.getDay()]}) ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+}
+function hm(d){ return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+function setState(el, cls, text){ el.className="state "+cls; el.lastElementChild.textContent=text; }
+
+/* ── 홈: 상태 문장 ── */
+function drawHero(){
+  const a=S.auto, c=S.counts, now=a.mode==="now";
+  const up = S.posts.filter(p=>p.status==="SCHEDULED" && new Date(p.scheduled_at)>new Date()).sort((x,y)=>x.scheduled_at<y.scheduled_at?-1:1);
+  let line;
+  if(S.current) line = `${S.current}이에요.`;
+  else if(!a.enabled) line = "자동 작성이 꺼져 있어요.";
+  else if(now) line = `오늘 ${c.today}편 발행했어요. 하루 ${c.per_day}편까지 시간대마다 바로 올려요.`;
+  else line = up.length ? `다음 글은 ${when(up[0].scheduled_at)}에 공개돼요.` : "예약된 글이 없어요. 곧 채워 넣을게요.";
+  $("heroLine").textContent=line;
+  $("autoMsg").textContent = a.enabled ? (now? "" : `앞으로 예약된 글 ${c.upcoming}편 / 목표 ${c.target}편`) + (a.message? ` — ${a.message}`:"")
+                                       : (a.message || "오른쪽 스위치를 켜면 알아서 써요.");
 }
 
-let firstVersion=null;
+/* ── 홈: 7일 예약 타임라인 ── */
+function drawTimeline(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const posts=S.posts.filter(p=>p.scheduled_at && ["SCHEDULED","PUBLISHED","WRITING"].includes(p.status));
+  let h=`<div></div>`;
+  for(let d=0; d<7; d++){ const day=new Date(today); day.setDate(today.getDate()+d);
+    h+=`<div class="h ${d===0?"today":""}">${d===0?"오늘":`${day.getMonth()+1}/${day.getDate()}`}<br><span style="font-weight:500">${DAYS[day.getDay()]}</span></div>`; }
+  const nowT=new Date();
+  for(const [nm,h1,h2] of SLOTS){
+    h+=`<div class="rl">${nm}</div>`;
+    for(let d=0; d<7; d++){
+      const s=new Date(today); s.setDate(today.getDate()+d); s.setHours(h1);
+      const e=new Date(today); e.setDate(today.getDate()+d); e.setHours(h2);
+      const p=posts.find(x=>{ const t=new Date(x.scheduled_at); return t>=s && t<e; });
+      if(p){
+        const cls = p.status==="WRITING"? "writing" : p.kind;
+        h+=`<div class="slot ${cls}" title="${esc(p.title||p.topic||"")}"><b>${hm(new Date(p.scheduled_at))} ${p.kind==="shop"?"쇼핑":"정보"}</b><span class="tt">${esc(p.title||p.topic||"작성 중")}</span></div>`;
+      } else h+=`<div class="slot ${e<nowT?"past":""}"></div>`;
+    }
+  }
+  $("timeline").innerHTML=h;
+}
+
+/* ── 홈: 확인할 것 ── */
+function drawTodo(){
+  const items=[], c=S.counts, sc=S.sc||{};
+  if(!S.settings.GEMINI_API_KEY) items.push(["t-red","API 키가 없어요","설정에서 Gemini API 키를 넣어주세요.","settings"]);
+  if(!S.logged_in) items.push(["t-red","로그인 필요","네이버 로그인을 해주세요.","settings"]);
+  const failed=S.posts.filter(p=>p.status==="FAILED").length;
+  if(failed) items.push(["t-red",`실패 ${failed}건`,"이유를 확인하거나 완료로 표시해 주세요.","posts"]);
+  if(c.info_since_shop>=c.ratio && !c.links_waiting) items.push(["t-amber","쇼핑글 차례","대기열에 링크를 넣어주세요.","shop"]);
+  if((sc.items||[]).length) items.push(["t-amber",`추천 상품 ${sc.items.length}개`,"링크를 발급해서 붙여넣어 주세요.","shop"]);
+  if(c.links_waiting) items.push(["t-live",`대기 링크 ${c.links_waiting}개`,"쇼핑글 차례에 차례로 써요.","shop"]);
+  if(!items.length) items.push(["t-live","모두 괜찮아요","할 일이 없어요.",""]);
+  $("todo").innerHTML=items.map(([t,a,b,p])=>`<li><span class="tag ${t}">${esc(a)}</span><span class="muted">${esc(b)}</span>${p?`<button class="btn sm go" onclick="go('${p}')">보기</button>`:""}</li>`).join("");
+  const nb=(sc.items||[]).length + (c.info_since_shop>=c.ratio && !c.links_waiting ? 1:0);
+  $("navShop").style.display = nb? "" : "none"; $("navShop").textContent = nb;
+  $("navSet").style.display = (!S.settings.GEMINI_API_KEY||!S.logged_in)? "" : "none";
+}
+
 function render(){
   if(firstVersion===null) firstVersion=S.version;
-  else if(S.version!==firstVersion){ location.reload(); return; }   // 업데이트되면 화면도 새로
-  const u=S.update||{};
-  drawUpdate(u);
+  else if(S.version!==firstVersion){ location.reload(); return; }
+  drawUpdate(S.update||{});
   const a=S.auto, c=S.counts;
-  // 상태 표시
-  const st=$("status");
-  if(S.current){ st.className="pill busy"; st.lastElementChild.textContent=S.current; }
-  else if(a.enabled){ st.className="pill on"; st.lastElementChild.textContent="자동 켜짐"+(S.next_check?` · 다음 확인 ${S.next_check}`:""); }
-  else { st.className="pill off"; st.lastElementChild.textContent="자동 꺼짐"; }
+  const stCls = S.current? "busy" : a.enabled? "on" : "", stTx = S.current? S.current : a.enabled? "자동 켜짐"+(S.next_check?` · 다음 확인 ${S.next_check}`:"") : "자동 꺼짐";
+  setState($("status"), stCls, stTx); setState($("statusM"), stCls, stTx);
+  $("verM").textContent=`v${S.version}`;
+  $("blogName").textContent = S.settings.NAVER_BLOG_ID? `blog.naver.com/${S.settings.NAVER_BLOG_ID}` : "네이버 블로그";
 
+  drawHero(); drawTimeline(); drawTodo();
   $("enabled").checked=!!a.enabled;
   $("per_day").value=a.per_day; $("days_ahead").value=a.days_ahead;
-  const now = a.mode==="now";
+  const now=a.mode==="now";
   document.querySelectorAll("#modeSeg button").forEach(b=>b.classList.toggle("on", b.dataset.m===a.mode));
   if(!writeMode) writeMode=a.mode;
   document.querySelectorAll("#writeSeg button").forEach(b=>b.classList.toggle("on", b.dataset.m===writeMode));
-  $("modeHint").textContent = now ? "오전(9~11시)·오후(13~16시)·저녁(19~22시) 시간대가 오면 그때 써서 바로 발행해요. 맥이 그 시간에 켜져 있어야 해요."
-                                  : "미리 써서 네이버 예약으로 넣어둬요. 맥이 꺼져 있어도 시간이 되면 네이버가 공개해요.";
+  $("modeHint").textContent = now ? "오전·오후·저녁 시간대가 오면 그때 써서 바로 올려요. 그 시간에 맥이 켜져 있어야 해요."
+                                  : "미리 써서 네이버 예약으로 넣어둬요. 맥이 꺼져 있어도 시간이 되면 공개돼요.";
   $("daysBox").style.display = now ? "none" : "";
-  const num = now? c.today : c.upcoming, tgt = now? c.per_day : c.target;
-  $("upcoming").textContent=`${num} / ${tgt}`;
-  $("upLabel").textContent = now? "오늘 발행한 글 / 하루 목표" : "앞으로 예약된 글 / 목표";
-  $("bar").style.width=Math.min(100, tgt? num/tgt*100:0)+"%";
-  $("autoMsg").textContent=a.message||"-";
-  $("ratioN").textContent=c.ratio;
+  $("ratioN").textContent=c.ratio; document.querySelectorAll(".ratioN2").forEach(e=>e.textContent=c.ratio);
   let r=""; for(let i=0;i<c.ratio;i++) r+=`<b class="${i<c.info_since_shop?"done":""}">정보 ${i+1}</b>`;
-  r+=`<b class="shop">쇼핑</b>`; $("ratio").innerHTML=r;
+  $("ratio").innerHTML=r+`<b class="shop">쇼핑</b>`;
   $("ratioHint").textContent = c.info_since_shop>=c.ratio
-    ? (c.links_waiting? "다음 글은 쇼핑글이에요." : "쇼핑글 차례인데 대기열에 링크가 없어서 정보글을 계속 써요.")
-    : `정보글 ${c.ratio-c.info_since_shop}편 더 쓰면 쇼핑글 차례예요. (대기 링크 ${c.links_waiting}개)`;
+    ? (c.links_waiting? "다음 글은 쇼핑글이에요." : "쇼핑글 차례인데 대기열이 비어 있어서 정보글을 계속 써요.")
+    : `정보글 ${c.ratio-c.info_since_shop}편 더 쓰면 쇼핑글 차례예요.`;
 
-  const ls=$("loginState"); ls.className="pill "+(S.logged_in?"on":"warn");
-  ls.lastElementChild.textContent=S.logged_in?"로그인 저장됨":"로그인 필요";
+  const ls=$("loginState"); ls.className="tag "+(S.logged_in?"t-live":"t-red"); ls.textContent=S.logged_in?"로그인 저장됨":"로그인 필요";
+  const n=[]; if(!S.settings.NAVER_BLOG_ID) n.push("설정에서 네이버 블로그 아이디를 넣어주세요.");
+  $("notices").innerHTML=n.map(x=>`<div class="notice">${esc(x)}</div>`).join("");
 
-  // 알림
-  const n=[];
-  if(!S.settings.GEMINI_API_KEY) n.push("⚠️ 설정에서 Gemini API 키를 넣어주세요.");
-  if(!S.settings.NAVER_BLOG_ID) n.push("⚠️ 설정에서 네이버 블로그 아이디를 넣어주세요.");
-  if(!S.logged_in) n.push("⚠️ '네이버 로그인 창 열기'로 로그인해 주세요.");
-  $("notices").innerHTML=n.map(x=>`<div class="notice" style="margin-bottom:6px">${esc(x)}</div>`).join("");
-
-  // 링크
+  /* 링크 대기열 */
+  const LS={WAITING:["t-blue","대기"],USED:["t-grey","사용함"],FAILED:["t-red","실패"]};
   $("links").innerHTML = S.links.length? S.links.map(l=>`<tr>
-    <td><span class="tag ${l.status}">${STATUS[l.status]||l.status}</span></td>
-    <td><div class="url">${esc(l.product_name||l.url)}</div>${l.memo?`<div class="muted">메모: ${esc(l.memo)}</div>`:""}</td>
-    <td style="white-space:nowrap">${l.status==="FAILED"?`<button class="small" onclick="post('/api/links/retry',{id:${l.id}})">다시</button> `:""}<button class="small" onclick="if(confirm('이 링크를 지울까요?'))post('/api/links/delete',{id:${l.id}})">지우기</button></td></tr>`).join("")
+    <td style="width:60px"><span class="tag ${(LS[l.status]||["t-grey",l.status])[0]}">${(LS[l.status]||["",l.status])[1]}</span></td>
+    <td><div style="word-break:break-all;font-size:13.5px">${esc(l.product_name||l.url)}</div>${l.memo?`<div class="note">메모: ${esc(l.memo)}</div>`:""}</td>
+    <td style="white-space:nowrap;text-align:right">${l.status==="FAILED"?`<button class="btn sm" onclick="post('/api/links/retry',{id:${l.id}})">다시</button> `:""}<button class="btn ghost sm" onclick="if(confirm('이 링크를 지울까요?'))post('/api/links/delete',{id:${l.id}})">지우기</button></td></tr>`).join("")
     : `<tr><td class="muted">대기 중인 링크가 없어요.</td></tr>`;
 
-  // 글
+  /* 글 목록 */
+  $("postCount").textContent = `최근 ${S.posts.length}편`;
   $("posts").innerHTML = S.posts.length? S.posts.map(p=>{
     const done = p.status==="SCHEDULED"||p.status==="PUBLISHED";
-    const how = p.status==="SCHEDULED"? "예약글" : p.status==="PUBLISHED"? "즉시 발행" : (p.mode==="now"?"즉시 발행 예정":"예약 예정");
-    const pub = p.scheduled_at? `${how} · ${when(p.scheduled_at)}` : "-";
-    const btns = p.status==="FAILED"
-      ? `<button class="small" title="실제로는 예약·발행됐는데 실패로 보이면 눌러주세요" onclick="post('/api/posts/mark_done',{id:${p.id}})">완료로 표시</button> `
-      : "";
-    const del = p.status!=="WRITING"? `<button class="small" title="목록에서만 지워요 (블로그 글은 그대로)" onclick="if(confirm('목록에서 지울까요? (블로그 글은 그대로예요)'))post('/api/posts/delete',{id:${p.id}})">✕</button>`:"";
+    const tag = done? ["t-live","완료"] : p.status==="FAILED"? ["t-red","실패"] : p.status==="WRITING"? ["t-blue","작성 중"] : ["t-grey",p.status];
+    const how = p.status==="SCHEDULED"? "예약" : p.status==="PUBLISHED"? "즉시 발행" : (p.mode==="now"?"즉시 발행 예정":"예약 예정");
+    const btns = (p.status==="FAILED"? `<button class="btn sm" title="실제로는 올라갔는데 실패로 보이면 눌러주세요" onclick="post('/api/posts/mark_done',{id:${p.id}})">완료로 표시</button> `:"")
+               + (p.status!=="WRITING"? `<button class="btn ghost sm" title="목록에서만 지워요" onclick="if(confirm('목록에서 지울까요? (블로그 글은 그대로예요)'))post('/api/posts/delete',{id:${p.id}})">✕</button>`:"");
     return `<tr>
-    <td class="k-${p.kind}" style="white-space:nowrap;font-weight:600">${p.kind==="shop"?"🛒 쇼핑":"📝 정보"}${p.auto?"":" <span class='muted'>(수동)</span>"}</td>
-    <td>${esc(p.title||p.topic||"(주제 고르는 중)")}${p.post_url?` <a href="${esc(p.post_url)}" target="_blank">보기</a>`:""}${p.error?`<div class="err">❌ ${esc(p.error)}</div>`:""}${p.note?`<div class="note">ℹ️ ${esc(p.note)}</div>`:""}</td>
-    <td><span class="tag ${done?"DONE":p.status}">${STATUS[p.status]||p.status}</span></td>
-    <td style="white-space:nowrap">${pub}</td>
-    <td style="white-space:nowrap">${btns}${del}</td></tr>`;}).join("")
-    : `<tr><td colspan="5" class="muted">아직 쓴 글이 없어요.</td></tr>`;
+      <td class="kind ${p.kind}">${p.kind==="shop"?"쇼핑":"정보"}${p.auto?"":`<div class="note">수동</div>`}</td>
+      <td>${esc(p.title||p.topic||"주제 고르는 중")}${p.post_url?` <a href="${esc(p.post_url)}" target="_blank">보기</a>`:""}${p.error?`<div class="err">${esc(p.error)}</div>`:""}${p.note?`<div class="note">${esc(p.note)}</div>`:""}</td>
+      <td><span class="tag ${tag[0]}">${tag[1]}</span></td>
+      <td style="white-space:nowrap">${p.scheduled_at?`<div style="font-size:13.5px">${when(p.scheduled_at)}</div><div class="note">${how}</div>`:"-"}</td>
+      <td style="white-space:nowrap;text-align:right">${btns}</td></tr>`;}).join("")
+    : `<tr><td colspan="5" class="muted" style="padding:24px 8px">아직 쓴 글이 없어요. 홈에서 자동 작성을 켜거나 [정보글 쓰기]를 눌러보세요.</td></tr>`;
 
-  // 설정 (입력 중 덮어쓰지 않게 처음 한 번만)
+  /* 설정 */
   if(!settingsDrawn){
     $("settings").innerHTML = Object.entries(S.labels).map(([k,lab])=>{
-      const v=S.settings[k]||"";
-      const big = k==="BLOG_TOPIC"||k==="FTC_DISCLOSURE";
+      const v=S.settings[k]||"", big=k==="BLOG_TOPIC"||k==="FTC_DISCLOSURE";
       return `<label>${esc(lab)}</label>`+(big?`<textarea rows="${k==="FTC_DISCLOSURE"?2:3}" data-k="${k}">${esc(v)}</textarea>`
         :`<input data-k="${k}" value="${esc(v)}" ${k==="GEMINI_API_KEY"?'placeholder="AIza…"':""}>`);
     }).join("");
     settingsDrawn=true;
   }
+  if(!styleDrawn){ $("styleNotes").value=S.style.notes||""; styleDrawn=true; }
+  const sty=S.style;
+  $("styleInfo").textContent = `비교한 글 ${sty.learned||0}편, 고친 글 ${sty.edited||0}편` + (sty.updated_at?`, 마지막 반영 ${when(sty.updated_at)}`:"") + (sty.last_result?` — ${sty.last_result}`:"");
+  $("importBox").style.display = S.old_project && (!S.settings.GEMINI_API_KEY || !S.logged_in) ? "block":"none";
+  $("reconOpen").style.display = S.recon? "" : "none";
+
+  /* 인기 키워드 */
   const tr=S.trends||{}, cats=tr.cats||[];
   if(!$("catpick").dataset.drawn){
     $("catpick").innerHTML = Object.entries(S.trend_cats).map(([id,n])=>`<label><input type="checkbox" value="${id}" ${cats.includes(id)?"checked":""} onchange="saveCats()">${esc(n)}</label>`).join("");
     $("catpick").dataset.drawn=1;
   }
-  $("trendInfo").textContent = tr.updated_at? `· ${when(tr.updated_at)} 기준 (${tr.day||""} 하루)` : (tr.error? `· ${tr.error}` : "· 아직 없음");
+  $("trendInfo").textContent = tr.updated_at? `${tr.day||""} 하루 기준.` : (tr.error? `못 읽었어요: ${tr.error}.` : "곧 자동으로 모아요.");
   const by={}; (tr.items||[]).forEach(x=>{(by[x.cat_name]=by[x.cat_name]||[]).push(x);});
-  $("trendList").innerHTML = Object.keys(by).length? Object.entries(by).map(([cn,xs])=>`<div class="tcol" style="flex:1;min-width:220px"><h3>${esc(cn)}</h3><div class="chips">${
-     xs.map(x=>`<span class="chip ${x.hot?"hot":""}" title="${x.prev?`어제 ${x.prev}위`:"새로 들어옴"}" onclick="useKw('${esc(x.kw).replace(/'/g,"")}')"><b>${x.rank}</b>${esc(x.kw)}${x.hot?" 🔥":""}</span>`).join("")}</div></div>`).join("")
-     : `<div class="muted">${tr.error? "못 읽었어요: "+esc(tr.error) : "프로그램이 켜지고 잠시 뒤 자동으로 모아요."}</div>`;
-  $("reconOpen").style.display = S.recon? "" : "none";
+  $("trendList").innerHTML = Object.keys(by).length? Object.entries(by).map(([cn,xs])=>`<div><h3>${esc(cn)}</h3><div class="chips">${
+     xs.map(x=>`<span class="chip ${x.hot?"hot":""}" title="${x.prev?`어제 ${x.prev}위`:"새로 들어옴"}" onclick="useKw(this.dataset.k)" data-k="${esc(x.kw)}"><b>${x.rank}</b>${esc(x.kw)}${x.hot?" 🔥":""}</span>`).join("")}</div></div>`).join("")
+     : `<div class="muted">아직 없어요.</div>`;
   drawSC(S.sc||{}, S.sc_ready);
-  if(!styleDrawn){ $("styleNotes").value=S.style.notes||""; styleDrawn=true; }
-  const sty=S.style;
-  $("styleInfo").textContent = `비교한 글 ${sty.learned||0}편 · 고친 글 ${sty.edited||0}편` + (sty.updated_at?` · 마지막 반영 ${when(sty.updated_at)}`:"") + (sty.last_result?` — ${sty.last_result}`:"");
-  $("importBox").style.display = S.old_project && (!S.settings.GEMINI_API_KEY || !S.logged_in) ? "block":"none";
 
-  // 기록
+  /* 기록 */
   const box=$("logs"); const atBottom = box.scrollHeight-box.scrollTop-box.clientHeight<30;
   box.textContent=S.logs.join("\n")||"기록 없음";
   if(atBottom) box.scrollTop=box.scrollHeight;
+  $("logMini").textContent = S.logs.slice(-8).map(l=>l.replace(/^\[\d+\/\d+ /,"[")).join("\n") || "기록 없음";
+}
+
+function drawSC(sc, ready){
+  if(!scDrawn){ $("scRev").value=sc.min_reviews; $("scCom").value=sc.min_commission; scDrawn=true; }
+  $("scInfo").textContent = sc.updated_at? `${when(sc.updated_at)}에 고름` : "";
+  if(!ready){ $("scList").innerHTML=`<div class="notice" style="margin:0">설정 › 기본 설정의 <b>쇼핑커넥트 상품 목록 주소</b>를 먼저 넣어주세요. <button class="btn sm" onclick="go('settings')">설정으로</button></div>`; return; }
+  const box=$("scList"); if(box.contains(document.activeElement)) return;
+  const items=sc.items||[];
+  box.innerHTML = items.length? `<div class="scgrid">` + items.map(p=>`<div class="sccard">
+      <div class="muted">${esc(p.keyword||"")} 검색</div>
+      <div class="nm">${esc(p.name)}</div>
+      <div class="row" style="gap:6px"><span class="tag t-live">수수료 ${p.commission}%</span><span class="tag t-blue">리뷰 ${(p.reviews||0).toLocaleString()}</span><span class="muted">${esc(p.price||"")}</span></div>
+      <div class="row" style="margin-top:12px;gap:6px">
+        <a class="btnlink" href="${esc(p.detail)}" target="_blank">쇼핑커넥트에서 열기 ↗</a><span class="spacer"></span>
+        <button class="btn ghost sm" onclick="post('/api/sc/skip',{id:'${p.id}'})">빼기</button></div>
+      <div class="row" style="margin-top:8px;gap:6px">
+        <input id="lk${p.id}" placeholder="발급받은 링크 붙여넣기" style="flex:1;min-width:140px">
+        <button class="btn sm primary" onclick="addSC('${p.id}')">대기열에 넣기</button></div>
+    </div>`).join("") + `</div>`
+    : `<div class="muted">${esc(sc.message||"아직 추천 상품이 없어요.")} [다시 고르기]를 눌러보세요.</div>`;
+}
+
+function drawUpdate(u){
+  const b=$("upd"), ic=$("updIc"), t=$("updText");
+  const last = u.last_check? `마지막 확인 ${when(u.last_check)}` : "아직 확인 전";
+  const r = u.last_result||"";
+  let cls="ok", icon="✓", text=`v${S.version}`, tip=`최신 버전이에요. ${last}\n누르면 다시 확인해요`;
+  if(u.checking || Date.now()<updLocalBusy){ cls="busy"; icon=""; text="업데이트 확인 중…"; tip="새 버전을 확인하고 있어요"; }
+  else if(u.available && /작성/.test(r)){ cls="wait"; icon="⏳"; text=`v${u.latest} · 글 다 쓰면 적용`; tip=`새 버전 ${u.latest}을 받아뒀어요. 지금 쓰는 글이 끝나면 바꿔요.`; }
+  else if(u.available){ cls="new"; icon="↑"; text=`새 버전 v${u.latest} 받기`; tip=(u.notes? `바뀐 점: ${u.notes}\n`:"")+"누르면 바로 받고 다시 켜요"; }
+  else if(/실패/.test(r)){ cls="err"; icon="!"; text=`v${S.version} · 확인 실패`; tip=`${r}\n누르면 다시 확인해요`; }
+  else if(u.last_check){ text=`v${S.version} 최신`; }
+  b.className="upd "+cls; ic.textContent=icon; t.textContent=text; b.title=tip;
 }
 
 async function refresh(){
   try{ S = await (await fetch("/api/state",{cache:"no-store"})).json(); render(); }
   catch(e){
-    const st=$("status"), upd=S&&S.update&&/다시 켜는 중/.test(S.update.last_result||"");
-    st.className="pill "+(upd?"busy":"warn"); st.lastElementChild.textContent= upd? "새 버전으로 다시 켜는 중…" : "프로그램이 꺼져 있어요";
+    const upd=S&&S.update&&/다시 켜는 중/.test(S.update.last_result||"");
+    const tx = upd? "새 버전으로 다시 켜는 중…" : "프로그램이 꺼져 있어요";
+    setState($("status"), upd?"busy":"warn", tx); setState($("statusM"), upd?"busy":"warn", tx);
   }
 }
-
+function checkUpdate(){ updLocalBusy=Date.now()+4000; if(S) drawUpdate(S.update||{}); post("/api/update/check"); }
 function toggleAuto(on){ post("/api/auto",{enabled:on}).then(j=>{ if(j&&!j.ok) $("enabled").checked=false; }); }
 function saveAuto(){ post("/api/auto",{per_day:+$("per_day").value, days_ahead:+$("days_ahead").value}); }
-let updLocalBusy=0;
-function drawUpdate(u){
-  const b=$("upd"), ic=$("updIc"), t=$("updText");
-  const last = u.last_check? `마지막 확인 ${when(u.last_check)}` : "아직 확인 전";
-  const r = u.last_result||"";
-  let cls="ok", icon="✓", text=`v${S.version}`, tip=`최신 버전이에요 · ${last}\n누르면 다시 확인해요`;
-  if(u.checking || Date.now()<updLocalBusy){ cls="busy"; icon=""; text="업데이트 확인 중…"; tip="새 버전을 확인하고 있어요"; }
-  else if(u.available && /작성/.test(r)){ cls="wait"; icon="⏳"; text=`v${u.latest} · 글 다 쓰면 적용`; tip=`새 버전 ${u.latest}을 받아뒀어요. 지금 쓰는 글이 끝나면 자동으로 바꿔요.`; }
-  else if(u.available){ cls="new"; icon="↑"; text=`새 버전 v${u.latest} 받기`; tip=(u.notes? `바뀐 점: ${u.notes}\n`:"")+"누르면 바로 받고 다시 켜요 (몇 초)"; }
-  else if(/실패/.test(r)){ cls="err"; icon="!"; text=`v${S.version} · 확인 실패`; tip=`${r}\n누르면 다시 확인해요`; }
-  else if(u.last_check){ text=`v${S.version} 최신`; }
-  b.className="upd "+cls; ic.textContent=icon; t.textContent=text; b.title=tip;
-}
-function checkUpdate(){ updLocalBusy=Date.now()+4000; drawUpdate(S.update||{}); post("/api/update/check"); }
-let scDrawn=false;
-function drawSC(sc, ready){
-  if(!scDrawn){ $("scRev").value=sc.min_reviews; $("scCom").value=sc.min_commission; scDrawn=true; }
-  $("scInfo").textContent = sc.updated_at? `· ${when(sc.updated_at)} · ${sc.message||""}` : (sc.message? `· ${sc.message}` : "");
-  const items=sc.items||[];
-  if(!ready){ $("scList").innerHTML=`<div class="notice">설정 카드의 <b>쇼핑커넥트 상품 목록 주소</b>를 먼저 넣어주세요.</div>`; return; }
-  const box=$("scList");
-  if(box.contains(document.activeElement)) return;            // 링크 붙여넣는 중이면 다시 그리지 않음
-  box.innerHTML = items.length? `<div class="scgrid">` + items.map(p=>`<div class="sccard">
-      <div class="muted">'${esc(p.keyword||"")}' 검색</div>
-      <div style="font-weight:700;margin:3px 0 6px;line-height:1.35">${esc(p.name)}</div>
-      <div class="row" style="gap:6px"><span class="tag DONE">수수료 ${p.commission}%</span><span class="tag WAITING">리뷰 ${(p.reviews||0).toLocaleString()}</span><span class="muted">${esc(p.price||"")}</span></div>
-      <div class="row" style="margin-top:10px;gap:6px">
-        <a class="btnlink" href="${esc(p.detail)}" target="_blank">① 쇼핑커넥트에서 열기 ↗</a>
-        <button class="small" onclick="post('/api/sc/skip',{id:'${p.id}'})">빼기</button></div>
-      <div class="row" style="margin-top:8px;gap:6px">
-        <input id="lk${p.id}" placeholder="② 발급받은 링크 붙여넣기" style="flex:1;min-width:140px">
-        <button class="small primary" onclick="addSC('${p.id}')">대기열에 넣기</button></div>
-    </div>`).join("") + `</div>`
-    : `<div class="muted">아직 추천 상품이 없어요. [다시 고르기]를 눌러보세요.</div>`;
-}
-function addSC(id){ const v=$("lk"+id).value.trim(); post('/api/sc/add',{id, url:v}).then(j=>{ if(j&&j.ok) $("lk"+id).value=""; }); }
-function saveCats(){ post("/api/trends/cats",{cats:[...document.querySelectorAll("#catpick input:checked")].map(e=>e.value)}); }
-function useKw(k){ $("topic").value=k; $("topic").scrollIntoView({behavior:"smooth",block:"center"}); toast(`'${k}'를 정보글 주제 칸에 넣었어요`); }
 function setMode(m){ post("/api/auto",{mode:m}); writeMode=m; }
 function setWriteMode(m){ writeMode=m; render(); }
-function saveStyle(){ post("/api/style",{notes:$("styleNotes").value}); }
 function writeNow(kind){ post("/api/write",{kind, mode: writeMode, topic: kind==="info"? $("topic").value : ""}).then(()=>{ $("topic").value=""; }); }
 function addLinks(){ post("/api/links",{text:$("linkText").value, memo:$("linkMemo").value}).then(j=>{ if(j&&j.ok){ $("linkText").value=""; $("linkMemo").value=""; } }); }
-function clearFailed(){ if(confirm("실패한 글 기록을 모두 지울까요? (자동이 다시 켜지지 않을 때도 도움돼요)")) post("/api/posts/clear_failed"); }
+function addSC(id){ const v=$("lk"+id).value.trim(); post('/api/sc/add',{id, url:v}).then(j=>{ if(j&&j.ok) $("lk"+id).value=""; }); }
+function saveCats(){ post("/api/trends/cats",{cats:[...document.querySelectorAll("#catpick input:checked")].map(e=>e.value)}); }
+function useKw(k){ go("home"); $("topic").value=k; $("topic").focus(); toast(`'${k}'를 정보글 주제로 넣었어요`); }
+function saveStyle(){ post("/api/style",{notes:$("styleNotes").value}); }
+function clearFailed(){ if(confirm("실패한 글 기록을 모두 지울까요?")) post("/api/posts/clear_failed"); }
 function saveSettings(){ const b={}; document.querySelectorAll("#settings [data-k]").forEach(e=>b[e.dataset.k]=e.value); post("/api/settings",b).then(()=>{ settingsDrawn=false; }); }
-function quitApp(){ if(confirm("프로그램을 끌까요? 꺼져 있는 동안은 자동으로 글을 쓰지 않아요. (이미 예약된 글은 네이버가 공개해요)")) post("/api/quit"); }
+function quitApp(){ if(confirm("프로그램을 끌까요? 꺼져 있는 동안은 글을 쓰지 않아요. (이미 예약된 글은 네이버가 공개해요)")) post("/api/quit"); }
 
 refresh(); setInterval(refresh, 4000);
 </script>
