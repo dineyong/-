@@ -1,8 +1,8 @@
 {
- "version": "1.3.1",
- "notes": "쇼핑커넥트 화면 살펴보기 개선 (MY 메뉴·내 채널까지 들어가기, 내부 요청 기록)",
+ "version": "1.3.2",
+ "notes": "업데이트 버튼 새 디자인",
  "files": {
-  "blogbot/__init__.py": "cb4a2669943ca0acbe2753df90347ecb79855f619c7f07d2af6375b4267a7af8",
+  "blogbot/__init__.py": "fe6d51df33dd6b202bcb64c438d8be64ced965be98f5db3c22b1b453b075b33f",
   "blogbot/__main__.py": "d93ce8f71095dc4c43cf39b98672e3296bd8cd623a32719b8799d69b87ff4c50",
   "blogbot/ai.py": "626f3f40a6534c8d5f27b61893b1310ae00d260d69dce018197a0924f94a1d8a",
   "blogbot/config.py": "3c111e5893e43cabaaa1f7928fef906c5c22b8c45f51e1e676d1229dd13bda26",
@@ -12,12 +12,12 @@
   "blogbot/naver.py": "23806bd786d28f4bb440bf4eddad11299bf15879e31f9218972df410c948b67e",
   "blogbot/prompts.py": "5c6f85f3a43650ea07b71081df85ced94ac1ea75f7fe47ef485b9071babbfd3a",
   "blogbot/scheduler.py": "3db6292c4c4c3462d68ebcd34eeeb38d2bb1fb5a0c11453e1f9a0c649b372a10",
-  "blogbot/server.py": "de702a4613e7f433e5fabd4427b5575fa6cf158e238e74eb99d464d231748680",
+  "blogbot/server.py": "a04ef49fa8943ee431195ed12c31fd3677b0dcd071840de40168e9be2a37169b",
   "blogbot/style.py": "86625672e7058335cf8d073779838d9286fef0e0fb8607459c888ef8d01be452",
   "blogbot/text.py": "fd727cbe4d4aac883f72a18c167d3286d2c53852232eb6f61c6d5da75f539dab",
   "blogbot/trends.py": "8f4caae1ea7733b218f38a7b1340faf3b584817ce9f912fb3535ffefa8195c07",
-  "blogbot/updater.py": "97a7abe809f654908facb31ad97525074e3e7ff761a9abcc5a24d0b9d3fe638d",
-  "blogbot/web/index.html": "f535791cd740cf8e26e616eb3c692364ae082f5b53dc2b4bb282332c5e161c15",
+  "blogbot/updater.py": "651a8112691166207085e1f3796182860538a4a79c5a601765ecd75c6da2bf78",
+  "blogbot/web/index.html": "c9b5fafc0920d84b694905c0bf3dbc6a3c979c598d3e9a21a1cb52ad09487da4",
   "blogbot/writer.py": "2ce24b6110c2946618c41b94966d29f1bfeeda2ec8c1a9f2317d07bb6f360887"
  }
 }

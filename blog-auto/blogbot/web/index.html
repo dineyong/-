@@ -71,6 +71,18 @@ td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
 .note{color:var(--sub);font-size:12.5px;margin-top:2px}
 .DONE{background:var(--green-bg);color:var(--green)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
+/* 업데이트 버튼 */
+.upd{display:inline-flex;align-items:center;gap:7px;padding:5px 12px 5px 10px;border-radius:99px;font-size:12.5px;font-weight:600;
+     border:1px solid var(--line);background:var(--card);color:var(--sub);transition:background .2s,color .2s,border-color .2s}
+.upd:hover{border-color:var(--sub);color:var(--ink)}
+.upd-ic{width:14px;height:14px;display:inline-grid;place-items:center;font-size:11px;line-height:1}
+.upd.ok .upd-ic{color:var(--green)}
+.upd.new{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 2px 10px rgba(47,158,110,.35)}
+.upd.new:hover{filter:brightness(1.05);color:#fff}
+.upd.wait{background:var(--amber-bg);border-color:transparent;color:var(--amber)}
+.upd.err{background:var(--red-bg);border-color:transparent;color:var(--red)}
+.upd.busy .upd-ic{border:2px solid currentColor;border-right-color:transparent;border-radius:50%;width:11px;height:11px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 .chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px solid var(--line);border-radius:99px;font-size:13px;background:var(--bg);cursor:pointer}
 .chip:hover{border-color:var(--sub)} .chip b{color:var(--sub);font-weight:500;font-size:11.5px}
 .chip.hot{border-color:var(--amber);background:var(--amber-bg)}
@@ -92,7 +104,7 @@ header button{white-space:nowrap}
 <header>
   <h1>📝 블로그 자동화</h1>
   <span id="status" class="pill off"><span class="dot"></span><span>불러오는 중</span></span>
-  <span class="muted" id="ver" title="업데이트 확인" style="cursor:pointer" onclick="post('/api/update/check')"></span>
+  <button id="upd" class="upd" onclick="checkUpdate()"><span class="upd-ic" id="updIc"></span><span id="updText">v…</span></button>
   <span class="spacer"></span>
   <button onclick="post('/api/open_folder')">📁 데이터 폴더</button>
   <button onclick="quitApp()">종료</button>
@@ -248,7 +260,7 @@ function render(){
   if(firstVersion===null) firstVersion=S.version;
   else if(S.version!==firstVersion){ location.reload(); return; }   // 업데이트되면 화면도 새로
   const u=S.update||{};
-  $("ver").textContent = `v${S.version}` + (u.last_result? ` · ${u.last_result}` : "");
+  drawUpdate(u);
   const a=S.auto, c=S.counts;
   // 상태 표시
   const st=$("status");
@@ -345,11 +357,28 @@ function render(){
 
 async function refresh(){
   try{ S = await (await fetch("/api/state",{cache:"no-store"})).json(); render(); }
-  catch(e){ const st=$("status"); st.className="pill warn"; st.lastElementChild.textContent="프로그램이 꺼져 있어요"; }
+  catch(e){
+    const st=$("status"), upd=S&&S.update&&/다시 켜는 중/.test(S.update.last_result||"");
+    st.className="pill "+(upd?"busy":"warn"); st.lastElementChild.textContent= upd? "새 버전으로 다시 켜는 중…" : "프로그램이 꺼져 있어요";
+  }
 }
 
 function toggleAuto(on){ post("/api/auto",{enabled:on}).then(j=>{ if(j&&!j.ok) $("enabled").checked=false; }); }
 function saveAuto(){ post("/api/auto",{per_day:+$("per_day").value, days_ahead:+$("days_ahead").value}); }
+let updLocalBusy=0;
+function drawUpdate(u){
+  const b=$("upd"), ic=$("updIc"), t=$("updText");
+  const last = u.last_check? `마지막 확인 ${when(u.last_check)}` : "아직 확인 전";
+  const r = u.last_result||"";
+  let cls="ok", icon="✓", text=`v${S.version}`, tip=`최신 버전이에요 · ${last}\n누르면 다시 확인해요`;
+  if(u.checking || Date.now()<updLocalBusy){ cls="busy"; icon=""; text="업데이트 확인 중…"; tip="새 버전을 확인하고 있어요"; }
+  else if(u.available && /작성/.test(r)){ cls="wait"; icon="⏳"; text=`v${u.latest} · 글 다 쓰면 적용`; tip=`새 버전 ${u.latest}을 받아뒀어요. 지금 쓰는 글이 끝나면 자동으로 바꿔요.`; }
+  else if(u.available){ cls="new"; icon="↑"; text=`새 버전 v${u.latest} 받기`; tip=(u.notes? `바뀐 점: ${u.notes}\n`:"")+"누르면 바로 받고 다시 켜요 (몇 초)"; }
+  else if(/실패/.test(r)){ cls="err"; icon="!"; text=`v${S.version} · 확인 실패`; tip=`${r}\n누르면 다시 확인해요`; }
+  else if(u.last_check){ text=`v${S.version} 최신`; }
+  b.className="upd "+cls; ic.textContent=icon; t.textContent=text; b.title=tip;
+}
+function checkUpdate(){ updLocalBusy=Date.now()+4000; drawUpdate(S.update||{}); post("/api/update/check"); }
 function saveCats(){ post("/api/trends/cats",{cats:[...document.querySelectorAll("#catpick input:checked")].map(e=>e.value)}); }
 function useKw(k){ $("topic").value=k; $("topic").scrollIntoView({behavior:"smooth",block:"center"}); toast(`'${k}'를 정보글 주제 칸에 넣었어요`); }
 function setMode(m){ post("/api/auto",{mode:m}); writeMode=m; }

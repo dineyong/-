@@ -127,7 +127,7 @@ def handle(path: str, body: dict) -> dict:
             r = updater.check(busy=scheduler.busy)
             log(f"⬇️ 업데이트 확인: {updater.get()['last_result'] or r}")
         threading.Thread(target=job, daemon=True).start()
-        return {"ok": True, "msg": "새 버전을 확인하고 있어요."}
+        return {"ok": True, "msg": ""}
     if path == "/api/trends/refresh":
         return {"ok": True, "msg": scheduler.run_trends()}
     if path == "/api/trends/cats":

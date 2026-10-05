@@ -38,6 +38,8 @@ def get() -> dict:
     s = {"latest": None, "last_check": None, "last_result": "", "notes": ""}
     s.update(db.setting(KEY, {}) or {})
     s["current"] = __version__
+    s["checking"] = _lock.locked()
+    s["available"] = bool(s.get("latest")) and _vt(s["latest"]) > _vt(__version__)
     return s
 
 
