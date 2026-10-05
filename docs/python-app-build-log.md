@@ -60,6 +60,16 @@
   - 검증: 3.9로 전체 import, 가짜 홈에서 실행기 → 실행/강제종료 후 재시작/종료 버튼 확인. (샌드박스에서 PyPI 접근이 막혀 pip 설치 단계는 맥에서 처음 확인 필요)
 - [x] 9. 전달 — /home/claude/post/블로그자동화-파이썬-v1.0.0.zip, 소스 git bundle /home/claude/post/blogbot-source.bundle
 
+## 맥 첫 실행에서 겪은 일 (2026-10-05, v1.0.1)
+- Gatekeeper "악성 코드가 없음을 확인할 수 없습니다" → 시스템 설정 > 개인정보 보호 및 보안 > "그래도 열기". 안 보이면 `xattr -dr com.apple.quarantine /Applications/블로그자동화.app`
+- 설치(맥 기본 /usr/bin/python3 3.9.6 + playwright 1.56 + chromium-1194)는 5분 만에 성공
+- **켜지자마자 꺼짐 반복**: 서명 안 된 앱(셸 실행기)에서 띄운 파이썬은 맥 개인정보 보호(TCC)로 ~/Downloads 읽기가 묻지도 않고 거부됨 → `PermissionError: [Errno 1] Operation not permitted: .../Downloads/naver-bc-automation-main/.env` → 예외로 프로그램 종료 → 실행기가 10초마다 재시작(사용자 눈엔 무반응)
+  - 고침: 가져오기의 OSError는 잡고 계속 실행, Path.exists()도 안전 함수(can_see)로 (3.9는 EPERM에서 예외)
+  - 가져오기 경로: `~/BlogAuto/old/`에 터미널로 .env·naver-session.json·dev.db를 복사해 두면 거기서 가져옴 (터미널은 다운로드 접근 권한이 있음)
+  - 실행기: 60초 안에 3번 연속 꺼지면 안내창 + 기록 보기, 안내창은 'tell me to activate'로 맨 앞에, launcher.log 기록
+- 교훈: 서명 없는 맥 앱은 Documents/Downloads/Desktop을 건드리지 말고 자기 폴더(~/BlogAuto)만 쓸 것. 실패가 조용히 반복되지 않게 꼭 사용자에게 보이게
+- 예전 Node 프로그램이 닫지 않은 로봇 크롬(chromium-1208)이 10개 가까이 남아 있었음 → `pkill -f "chromium-1208"`
+
 ## 아직 실제 네이버에서 확인 못 한 것
 - 파이썬판으로 실제 예약 발행 1회 (에디터 셀렉터는 Node판과 동일하므로 같은 결과 예상)
 - 첫 실행 pip/chromium 설치 (맥 실제 환경)
