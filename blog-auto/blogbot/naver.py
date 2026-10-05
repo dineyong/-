@@ -11,6 +11,7 @@ Node 버전(simple-agent.ts)에서 실제로 겪고 고친 안전장치를 그�
 from __future__ import annotations
 
 import datetime as dt
+import json
 import re
 import time
 import urllib.request
@@ -646,3 +647,118 @@ def emoji_clusters(s: str) -> list[str]:
 
 def is_emoji(cluster: str) -> bool:
     return any(is_pictographic(c) or c in _JOIN for c in cluster)
+
+
+# ─────────────────────────────────────────────
+# 쇼핑커넥트(브랜드커넥트) 화면 살펴보기 — 링크 자동 발급을 만들기 위한 정찰
+#   로그인된 로봇 브라우저로 화면을 열고 사진·구조만 저장. 누르는 건 '검색'까지 (발급 버튼은 절대 안 누름)
+# ─────────────────────────────────────────────
+OUTLINE_JS = r"""() => {
+  const out = [];
+  const pick = (el) => {
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return;
+    const t = (el.innerText || el.value || el.getAttribute('aria-label') || el.getAttribute('placeholder') || '').trim().replace(/\s+/g, ' ');
+    out.push({tag: el.tagName.toLowerCase(), text: t.slice(0, 80), cls: (el.className && el.className.baseVal === undefined ? el.className : '').toString().slice(0, 120),
+              id: el.id || '', href: el.getAttribute('href') || '', type: el.getAttribute('type') || '',
+              name: el.getAttribute('name') || '', ph: el.getAttribute('placeholder') || '', role: el.getAttribute('role') || '',
+              data: Array.from(el.attributes).filter(a => a.name.startsWith('data-')).map(a => a.name + '=' + a.value.slice(0, 40)).join(' '),
+              x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height)});
+  };
+  document.querySelectorAll('input, textarea, select, button, a, [role=button], [role=tab], [role=link]').forEach(pick);
+  // 상품 카드처럼 보이는 것 (수수료·리뷰·가격 글자가 든 작은 덩어리)
+  document.querySelectorAll('li, article, [class*=item], [class*=card], [class*=product]').forEach(el => {
+    const t = (el.innerText || '');
+    if (t.length < 400 && /(수수료|리뷰|원|%|발급|링크)/.test(t)) pick(el);
+  });
+  return {url: location.href, title: document.title, items: out.slice(0, 600)};
+}"""
+
+
+def recon_shopping_connect(keyword: str) -> str:
+    """브랜드커넥트 화면들을 저장하고 zip 경로를 돌려줌."""
+    import zipfile
+    stamp = dt.datetime.now().strftime("%m%d-%H%M")
+    d = config.HOME / "recon" / stamp
+    d.mkdir(parents=True, exist_ok=True)
+    notes: list[str] = []
+    w = Writer()
+    n = 0
+
+    def snap(label: str):
+        nonlocal n
+        n += 1
+        w.page.wait_for_timeout(2500)
+        base = d / f"{n}-{label}"
+        try:
+            w.page.screenshot(path=str(base) + ".png", full_page=True)
+        except Exception as e:  # noqa: BLE001
+            notes.append(f"{label} 사진 실패: {e}")
+        try:
+            frames = []
+            for f in w.page.frames:
+                try:
+                    frames.append(f.evaluate(OUTLINE_JS))
+                except Exception:
+                    pass
+            (base.with_suffix(".json")).write_text(json.dumps(frames, ensure_ascii=False, indent=1), "utf-8")
+            (base.with_suffix(".html")).write_text(w.page.content(), "utf-8")
+        except Exception as e:  # noqa: BLE001
+            notes.append(f"{label} 구조 저장 실패: {e}")
+        notes.append(f"{n}-{label}: {w.page.url}")
+        log(f"   📸 {label} 화면 저장 ({w.page.url[:80]})")
+
+    def try_search(label: str) -> bool:
+        for sel in ('input[type="search"]', 'input[placeholder*="검색"]', 'input[placeholder*="상품"]',
+                    'input[name*="keyword" i]', 'input[name*="query" i]', 'input[type="text"]'):
+            for f in w.page.frames:
+                try:
+                    el = f.query_selector(sel)
+                    if el and el.is_visible():
+                        el.click()
+                        el.fill(keyword)
+                        w.page.keyboard.press("Enter")
+                        notes.append(f"{label}: '{sel}' 칸에 '{keyword}' 검색")
+                        w.page.wait_for_timeout(4000)
+                        snap(label)
+                        return True
+                except Exception:
+                    continue
+        notes.append(f"{label}: 검색 칸을 못 찾음")
+        return False
+
+    try:
+        log(f"🔎 쇼핑커넥트 화면 살펴보기 (검색어: {keyword}) — 검색까지만 하고 아무것도 발급하지 않아요")
+        w.page.goto("https://brandconnect.naver.com/", timeout=30000)
+        snap("home")
+        if "nid.naver.com" in w.page.url:
+            notes.append("로그인 화면으로 넘어감 → 네이버 로그인 필요")
+        else:
+            try_search("home-search")
+            # '쇼핑커넥트'/'상품' 메뉴 주소가 보이면 그 주소로 이동해서 한 번 더 (클릭 대신 주소 이동)
+            seen = set()
+            for f in w.page.frames:
+                try:
+                    links = f.evaluate("() => Array.from(document.querySelectorAll('a')).map(a => [a.innerText.trim(), a.href])")
+                except Exception:
+                    continue
+                for text, href in links:
+                    if href and href.startswith("http") and re.search(r"쇼핑\s*커넥트|상품|링크|shopping|product", f"{text} {href}", re.I) \
+                            and "logout" not in href.lower() and href not in seen and len(seen) < 3:
+                        seen.add(href)
+            for i, href in enumerate(sorted(seen)):
+                try:
+                    w.page.goto(href, timeout=30000)
+                    snap(f"menu{i + 1}")
+                    try_search(f"menu{i + 1}-search")
+                except Exception as e:  # noqa: BLE001
+                    notes.append(f"{href} 열기 실패: {e}")
+    finally:
+        (d / "notes.txt").write_text("\n".join(notes), "utf-8")
+        w.close()
+    zpath = config.HOME / "recon" / f"쇼핑커넥트화면-{stamp}.zip"
+    with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
+        for f in sorted(d.iterdir()):
+            z.write(f, f.name)
+    log(f"📦 저장 완료: {zpath} — 이 파일을 Claude에게 보내주세요")
+    return str(zpath)

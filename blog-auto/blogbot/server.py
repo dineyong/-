@@ -8,7 +8,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import __version__, config, db, scheduler, style, updater
+from . import __version__, config, db, scheduler, style, trends, updater
 from . import log as _logmod
 from .log import RECENT, log
 
@@ -50,6 +50,7 @@ def state() -> dict:
         "logs": _recent(),
         "style": style.get(),
         "update": updater.get(),
+        "trends": trends.get(), "trend_cats": trends.CATS, "recon": scheduler.state.get("recon"),
         "old_project": str(old_project() or ""),
         "home": str(config.HOME),
     }
@@ -127,6 +128,18 @@ def handle(path: str, body: dict) -> dict:
             log(f"⬇️ 업데이트 확인: {updater.get()['last_result'] or r}")
         threading.Thread(target=job, daemon=True).start()
         return {"ok": True, "msg": "새 버전을 확인하고 있어요."}
+    if path == "/api/trends/refresh":
+        return {"ok": True, "msg": scheduler.run_trends()}
+    if path == "/api/trends/cats":
+        cats = [c for c in body.get("cats", []) if c in trends.CATS] or trends.DEFAULT_CATS
+        trends.save(cats=cats, date=None, tried_at=None)        # 분야 바꾸면 다시 모으기
+        return {"ok": True, "msg": scheduler.run_trends()}
+    if path == "/api/recon":
+        kw = (body.get("keyword") or "").strip() or (trends.hints(1) or ["물티슈"])[0]
+        return {"ok": True, "msg": scheduler.run_recon(kw)}
+    if path == "/api/open_recon":
+        os.system(f'open "{config.HOME / "recon"}" >/dev/null 2>&1 &')
+        return {"ok": True}
     if path == "/api/posts/clear_failed":
         n = db.run("DELETE FROM posts WHERE status='FAILED'")
         return {"ok": True, "msg": "실패한 글 기록을 지웠어요."}

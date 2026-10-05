@@ -14,7 +14,7 @@ import threading
 import time
 import zlib
 
-from . import ai, db, naver, style, writer
+from . import ai, db, naver, style, trends, writer
 from .log import log
 
 KEY = "auto"
@@ -25,7 +25,7 @@ STALE_MIN = 30
 
 _jobs: "queue.Queue[tuple]" = queue.Queue()
 busy = threading.Lock()          # 글쓰기·로그인이 겹치지 않게
-state = {"current": None, "next_check": None}
+state = {"current": None, "next_check": None, "recon": None}
 
 
 def get() -> dict:
@@ -151,6 +151,37 @@ def request(kind: str | None = None, topic: str | None = None, mode: str | None 
     return f"{'쇼핑글' if kind == 'shop' else '정보글'} 작성을 시작했어요 ({how}). 로봇 브라우저는 닫지 말아주세요."
 
 
+def run_trends() -> str:
+    def job():
+        state["current"] = "인기 키워드 모으는 중"
+        try:
+            trends.collect()
+        except Exception as e:  # noqa: BLE001
+            trends.save(error=str(e), tried_at=dt.datetime.now().isoformat(timespec="minutes"))
+            log(f"⚠️ 인기 키워드 읽기 오류: {e}")
+        finally:
+            state["current"] = None
+    if busy.locked() or not _jobs.empty():
+        return "다른 작업 중이에요. 끝나면 다시 눌러주세요."
+    _jobs.put((job,))
+    return "인기 키워드를 모으고 있어요 (1분쯤)."
+
+
+def run_recon(keyword: str) -> str:
+    def job():
+        state["current"] = "쇼핑커넥트 화면 살펴보는 중"
+        try:
+            state["recon"] = naver.recon_shopping_connect(keyword)
+        except Exception as e:  # noqa: BLE001
+            log(f"⚠️ 쇼핑커넥트 화면 살펴보기 실패: {e}")
+        finally:
+            state["current"] = None
+    if busy.locked() or not _jobs.empty():
+        return "다른 작업 중이에요. 끝나면 다시 눌러주세요."
+    _jobs.put((job,))
+    return "로봇 브라우저로 쇼핑커넥트 화면을 살펴볼게요. 검색까지만 하고 아무것도 발급하지 않아요."
+
+
 def run_login():
     def job():
         state["current"] = "네이버 로그인 창 열림"
@@ -235,6 +266,12 @@ def _tick_now(s: dict, now: dt.datetime) -> str:
 def _loop():
     time.sleep(30)                        # 켜고 30초 뒤 첫 확인
     while True:
+        try:
+            if trends.due() and not busy.locked() and _jobs.empty():
+                run_trends()               # 하루 한 번 인기 키워드
+                time.sleep(5)
+        except Exception as e:  # noqa: BLE001
+            log(f"[자동] 인기 키워드 예약 오류: {e}")
         try:
             r = tick()
             if r not in ("꺼져 있음", "충분함"):

@@ -55,11 +55,13 @@ VISUAL_COMMON = """[그림 기획 — 독자가 귀엽게 보고 저장하고 �
 # ─────────────────────────────────────────────
 # 주제 고르기
 # ─────────────────────────────────────────────
-def topic(blog_topic: str, used_titles: list[str], products: list[str]) -> tuple[str, str]:
+def topic(blog_topic: str, used_titles: list[str], products: list[str], trends: list[str] | None = None) -> tuple[str, str]:
     system = ("당신은 네이버 블로그 마케팅 담당자입니다. 검색 노출(검색량·계절성·경쟁 강도)과 독자 반응(공감·저장·댓글)을 "
               "함께 고려해, 직접 경험이 없어도 정확한 정보로 쓸 수 있는 주제를 고릅니다.")
     used = "\n- ".join(used_titles) or "(없음)"
     prods = "\n- ".join(products) or "(없음)"
+    trend_block = ("\n요즘 네이버 쇼핑에서 검색이 많은 키워드 (참고용 — 블로그 주제와 자연스럽게 이어지는 생활 정보가 있으면 "
+                   "그 검색 수요를 노린 주제로, 억지로 연결되면 무시):\n- " + "\n- ".join(trends) + "\n") if trends else ""
     user = f"""블로그 주제: {blog_topic}
 
 이미 쓴 글 (겹치지 않게):
@@ -67,7 +69,7 @@ def topic(blog_topic: str, used_titles: list[str], products: list[str]) -> tuple
 
 블로그에서 소개한 상품 (관련 생활 정보면 좋음, 상품 홍보는 아님):
 - {prods}
-
+{trend_block}
 조건:
 - 위 블로그 주제의 소분류 중, 최근 3개 글과 **다른 소분류**에서 고르기 (다양하게 돌아가며)
 - 지금 계절·시기에 사람들이 실제로 검색할 만한 생활 정보 주제 1개

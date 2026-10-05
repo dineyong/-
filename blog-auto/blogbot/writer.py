@@ -9,7 +9,7 @@ import datetime as dt
 import random
 from pathlib import Path
 
-from . import ai, config, db, illustrations, prompts, style, text
+from . import ai, config, db, illustrations, prompts, style, text, trends
 from .log import log
 from .naver import StopError, Writer, fmt
 
@@ -87,7 +87,7 @@ def pick_topic() -> str:
     used = [r["title"] for r in db.q("SELECT title FROM posts WHERE title IS NOT NULL ORDER BY id DESC LIMIT 40")]
     prods = [r["product_name"] for r in db.q(
         "SELECT product_name FROM links WHERE product_name IS NOT NULL ORDER BY id DESC LIMIT 20")]
-    s, u = prompts.topic(config.get("BLOG_TOPIC"), used, prods)
+    s, u = prompts.topic(config.get("BLOG_TOPIC"), used, prods, trends.hints())
     t = str(ai.generate_json(s, u, lambda d: bool(str(d.get("topic", "")).strip())).get("topic", "")).strip()
     if not t:
         raise ai.AIError("AI가 정보글 주제를 고르지 못했어요.")

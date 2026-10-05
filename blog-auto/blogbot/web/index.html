@@ -70,6 +70,13 @@ td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
 .seg button.on{background:var(--accent);color:var(--bg);font-weight:600}
 .note{color:var(--sub);font-size:12.5px;margin-top:2px}
 .DONE{background:var(--green-bg);color:var(--green)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px solid var(--line);border-radius:99px;font-size:13px;background:var(--bg);cursor:pointer}
+.chip:hover{border-color:var(--sub)} .chip b{color:var(--sub);font-weight:500;font-size:11.5px}
+.chip.hot{border-color:var(--amber);background:var(--amber-bg)}
+.catpick label{display:inline-flex;gap:4px;align-items:center;margin:0 10px 0 0;color:var(--ink);font-size:13px}
+.catpick input{width:auto}
+.tcol h3{font-size:13px;margin:12px 0 6px;color:var(--sub);font-weight:600}
 a{color:var(--blue)}
 header button{white-space:nowrap}
 @media (max-width:600px){
@@ -146,6 +153,23 @@ header button{white-space:nowrap}
       <button onclick="post('/api/login')">네이버 로그인 창 열기</button>
     </div>
     <div class="muted" style="margin-top:6px">창이 열리면 직접 로그인하세요. 로그인되면 저장되고 창은 저절로 닫혀요 (보통 1~4주 유지).</div>
+  </section>
+
+  <!-- 인기 키워드 -->
+  <section class="card c12">
+    <h2>🔥 오늘의 인기 키워드 <span class="muted" style="font-weight:400" id="trendInfo"></span>
+      <span class="spacer"></span><button class="small" onclick="post('/api/trends/refresh')">다시 모으기</button></h2>
+    <div class="muted">네이버 데이터랩 쇼핑 인기 검색어예요 (하루 한 번 자동). 🔥는 새로 오르거나 5계단 이상 오른 키워드. 누르면 그 키워드로 정보글 주제를 채워요. 정보글 주제를 고를 때도 AI가 참고해요.</div>
+    <div class="catpick" id="catpick" style="margin:10px 0"></div>
+    <div id="trendList" class="row" style="align-items:flex-start;gap:18px"></div>
+    <div style="border-top:1px solid var(--line);margin:16px 0 12px"></div>
+    <h2>🔗 쇼핑커넥트 링크 자동 발급 <span class="tag WAITING">준비 중</span></h2>
+    <div class="muted">자동 발급을 만들려면 쇼핑커넥트 화면 구조가 필요해요. 아래 버튼을 누르면 로봇 브라우저가 쇼핑커넥트를 열어 <b>검색까지만</b> 하고 화면을 저장해요 (아무것도 발급하지 않아요). 끝나면 생기는 zip 파일을 Claude에게 보내주세요.</div>
+    <div class="row" style="margin-top:8px">
+      <input id="reconKw" placeholder="검색해볼 키워드 (비우면 인기 1위)" style="max-width:260px">
+      <button onclick="post('/api/recon',{keyword:$('reconKw').value})">쇼핑커넥트 화면 살펴보기</button>
+      <button id="reconOpen" style="display:none" onclick="post('/api/open_recon')">📦 저장된 파일 열기</button>
+    </div>
   </section>
 
   <!-- 쇼핑 링크 -->
@@ -297,6 +321,17 @@ function render(){
     }).join("");
     settingsDrawn=true;
   }
+  const tr=S.trends||{}, cats=tr.cats||[];
+  if(!$("catpick").dataset.drawn){
+    $("catpick").innerHTML = Object.entries(S.trend_cats).map(([id,n])=>`<label><input type="checkbox" value="${id}" ${cats.includes(id)?"checked":""} onchange="saveCats()">${esc(n)}</label>`).join("");
+    $("catpick").dataset.drawn=1;
+  }
+  $("trendInfo").textContent = tr.updated_at? `· ${when(tr.updated_at)} 기준 (${tr.day||""} 하루)` : (tr.error? `· ${tr.error}` : "· 아직 없음");
+  const by={}; (tr.items||[]).forEach(x=>{(by[x.cat_name]=by[x.cat_name]||[]).push(x);});
+  $("trendList").innerHTML = Object.keys(by).length? Object.entries(by).map(([cn,xs])=>`<div class="tcol" style="flex:1;min-width:220px"><h3>${esc(cn)}</h3><div class="chips">${
+     xs.map(x=>`<span class="chip ${x.hot?"hot":""}" title="${x.prev?`어제 ${x.prev}위`:"새로 들어옴"}" onclick="useKw('${esc(x.kw).replace(/'/g,"")}')"><b>${x.rank}</b>${esc(x.kw)}${x.hot?" 🔥":""}</span>`).join("")}</div></div>`).join("")
+     : `<div class="muted">${tr.error? "못 읽었어요: "+esc(tr.error) : "프로그램이 켜지고 잠시 뒤 자동으로 모아요."}</div>`;
+  $("reconOpen").style.display = S.recon? "" : "none";
   if(!styleDrawn){ $("styleNotes").value=S.style.notes||""; styleDrawn=true; }
   const sty=S.style;
   $("styleInfo").textContent = `비교한 글 ${sty.learned||0}편 · 고친 글 ${sty.edited||0}편` + (sty.updated_at?` · 마지막 반영 ${when(sty.updated_at)}`:"") + (sty.last_result?` — ${sty.last_result}`:"");
@@ -315,6 +350,8 @@ async function refresh(){
 
 function toggleAuto(on){ post("/api/auto",{enabled:on}).then(j=>{ if(j&&!j.ok) $("enabled").checked=false; }); }
 function saveAuto(){ post("/api/auto",{per_day:+$("per_day").value, days_ahead:+$("days_ahead").value}); }
+function saveCats(){ post("/api/trends/cats",{cats:[...document.querySelectorAll("#catpick input:checked")].map(e=>e.value)}); }
+function useKw(k){ $("topic").value=k; $("topic").scrollIntoView({behavior:"smooth",block:"center"}); toast(`'${k}'를 정보글 주제 칸에 넣었어요`); }
 function setMode(m){ post("/api/auto",{mode:m}); writeMode=m; }
 function setWriteMode(m){ writeMode=m; render(); }
 function saveStyle(){ post("/api/style",{notes:$("styleNotes").value}); }
