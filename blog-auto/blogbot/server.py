@@ -148,6 +148,9 @@ def handle(path: str, body: dict) -> dict:
             return {"ok": False, "msg": "발급받은 링크(https://…)를 붙여넣어 주세요."}
         shopconnect.add_link(str(body.get("id")), url, body.get("memo") or "")
         return {"ok": True, "msg": "링크 대기열에 넣었어요. 쇼핑글 차례에 이 상품으로 써요."}
+    if path == "/api/sc/clear":
+        shopconnect.save(items=[])
+        return {"ok": True, "msg": "추천 목록을 비웠어요."}
     if path == "/api/sc/skip":
         shopconnect.skip(str(body.get("id")))
         return {"ok": True, "msg": "이 상품은 다시 추천하지 않을게요."}

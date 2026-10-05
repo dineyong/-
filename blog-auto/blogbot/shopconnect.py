@@ -12,7 +12,7 @@ from .log import log
 
 KEY = "shopconnect"
 DEFAULT = {"min_reviews": 200, "min_commission": 5, "per_keyword": 2, "keywords": 3,
-           "items": [], "updated_at": None, "message": "", "done_ids": []}
+           "items": [], "updated_at": None, "message": "", "done_ids": [], "recent_kw": []}
 
 
 def get() -> dict:
@@ -34,7 +34,7 @@ def save(**patch) -> dict:
 def recommend(keyword: str | None = None) -> list[dict]:
     """인기 키워드(또는 지정 키워드)로 검색 → 수수료 높은 순 → 상세에서 리뷰 확인 → 기준 맞는 상품 목록 저장."""
     s = get()
-    done = set(s.get("done_ids") or [])
+    done = set(s.get("done_ids") or []) | {x["id"] for x in s.get("items", [])}
     kws = [keyword] if keyword else trends.hints(10)[: s["keywords"]]
     if not kws:
         save(message="인기 키워드가 아직 없어요. 인기 키워드를 먼저 모아주세요.")
@@ -58,9 +58,15 @@ def recommend(keyword: str | None = None) -> list[dict]:
             log(f"   🛍️ '{kw}': 추천 {got}개")
     finally:
         sc.close()
-    save(items=picked, updated_at=dt.datetime.now().isoformat(timespec="minutes"),
-         message=f"추천 상품 {len(picked)}개" if picked else "기준에 맞는 상품을 못 찾았어요 (리뷰·수수료 기준을 낮춰 보세요)")
-    log(f"🛍️ 쇼핑커넥트 추천 상품 {len(picked)}개를 골랐어요 — 대시보드에서 확인하세요")
+    # 기존 목록은 그대로 두고 새로 찾은 것만 앞에 더함 (발급해서 넣거나 [빼기]한 것만 빠짐)
+    old = [x for x in get().get("items", []) if x["id"] not in {p["id"] for p in picked}]
+    merged = (picked + old)[:30]
+    recent = get().get("recent_kw", [])
+    if keyword:
+        recent = [keyword] + [k for k in recent if k != keyword]
+    save(items=merged, recent_kw=recent[:8], updated_at=dt.datetime.now().isoformat(timespec="minutes"),
+         message=f"새 추천 {len(picked)}개" if picked else "새로 맞는 상품을 못 찾았어요 (리뷰·수수료 기준을 낮춰 보세요)")
+    log(f"🛍️ 쇼핑커넥트 추천 상품 {len(picked)}개를 더 골랐어요 (목록 {len(merged)}개)")
     return picked
 
 
