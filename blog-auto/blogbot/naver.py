@@ -313,6 +313,30 @@ class Writer:
             return frame
         raise StopError(f"글쓰기 화면을 찾지 못해서 안전하게 멈췄어요. 블로그 아이디를 확인해 주세요. ({self.page.url})")
 
+    def selfcheck(self) -> list[tuple[str, bool]]:
+        """에디터를 열어 우리가 쓰는 자리(제목·본문·발행 버튼)가 아직 그대로 있는지만 확인. 아무것도 쓰거나 누르지 않음.
+        네이버가 에디터를 바꿔서 글쓰기가 갑자기 안 될 때, 어느 부분이 바뀌었는지 알려주기 위한 점검."""
+        frame = self.open_editor()
+        self.page.wait_for_timeout(1000)
+
+        def has(*sels, visible=False) -> bool:
+            for sel in sels:
+                try:
+                    e = frame.query_selector(sel)
+                    if e and (e.is_visible() or not visible):
+                        return True
+                except Exception:
+                    pass
+            return False
+        return [
+            ("제목 칸", has(".se-documentTitle .se-text-paragraph")),
+            ("본문 칸", has(".se-component.se-text .se-text-paragraph", ".se-text-paragraph")),
+            ("발행 버튼", has('button[class*="publish_btn"]', 'button[data-click-area="tpb.publish"]',
+                           'header button[class*="publish"]', visible=True)),
+            ("사진 올리기", has('button[class*="se-image-toolbar-button"]', 'button[data-name="image"]', '[class*="se-toolbar"] [class*="image"]')),
+            ("글 서식 도구", has('[class*="se-toolbar"]')),
+        ]
+
     def title(self, frame: Frame, title: str):
         self.ensure_editor(frame)
         el = frame.query_selector(".se-documentTitle .se-text-paragraph")

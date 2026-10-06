@@ -234,6 +234,36 @@ def run_recon(keyword: str) -> str:
     return "로봇 브라우저로 쇼핑커넥트 화면을 살펴볼게요. 검색까지만 하고 아무것도 발급하지 않아요."
 
 
+def run_editor_check(account: int = 1) -> str:
+    def job():
+        state["current"] = "글쓰기 화면 점검 중"
+        w = None
+        try:
+            w = naver.Writer(account)
+            res = w.selfcheck()
+            bad = [n for n, ok in res if not ok]
+            state["editorcheck"] = {"at": dt.datetime.now().isoformat(timespec="minutes"), "account": account,
+                                    "items": [{"name": n, "ok": ok} for n, ok in res]}
+            log("🔍 글쓰기 화면 점검: " + (", ".join(f"{n} {'✅' if ok else '❌'}" for n, ok in res)))
+            if bad:
+                log("   ⚠️ 바뀐 것 같아요: " + ", ".join(bad) + " — 이 기록을 Claude에게 보여주면 고쳐드려요.")
+        except Exception as e:  # noqa: BLE001
+            state["editorcheck"] = {"at": dt.datetime.now().isoformat(timespec="minutes"), "account": account,
+                                    "items": [], "error": str(e)}
+            log(f"⚠️ 글쓰기 화면 점검 실패: {e}")
+        finally:
+            try:
+                if w:
+                    w.close()
+            except Exception:  # noqa: BLE001
+                pass
+            state["current"] = None
+    if busy.locked() or not _jobs.empty():
+        return "다른 작업 중이에요. 끝나면 다시 눌러주세요."
+    _jobs.put((job,))
+    return "글쓰기 화면을 열어 점검할게요 (글은 쓰지 않아요, 1분 정도)."
+
+
 def run_login(account: int = 1):
     def job():
         state["current"] = f"[{accounts.get(account)['label']}] 네이버 로그인 창 열림"

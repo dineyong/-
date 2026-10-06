@@ -448,6 +448,9 @@ details summary{cursor:pointer;color:var(--sub);font-size:13.5px;font-weight:600
               <button class="btn" onclick="post('/api/recon',{keyword:$('reconKw').value})">화면 살펴보기</button>
               <button class="btn ghost" id="reconOpen" style="display:none" onclick="post('/api/open_recon')">저장된 파일 열기</button>
             </div>
+            <p class="desc" style="margin:16px 0 10px">글쓰기가 갑자기 안 될 때: 네이버 글쓰기 화면의 제목·본문·발행 버튼이 그대로인지 열어서 확인만 해요 (글은 쓰지 않아요).</p>
+            <div class="row"><button class="btn" onclick="post('/api/editor_check',{account:curAcc})">글쓰기 화면 점검</button>
+              <span id="edCheck" class="row" style="gap:6px"></span></div>
           </div>
         </div>
       </div>
@@ -682,6 +685,9 @@ function render(){
   $("styleInfo").textContent = `비교한 글 ${sty.learned||0}편, 고친 글 ${sty.edited||0}편` + (sty.updated_at?`, 마지막 반영 ${when(sty.updated_at)}`:"") + (sty.last_result?` — ${sty.last_result}`:"");
   $("importBox").style.display = S.old_project && (!S.settings.GEMINI_API_KEY || !S.logged_in) ? "block":"none";
   $("reconOpen").style.display = S.recon? "" : "none";
+  const ec=S.editorcheck;
+  $("edCheck").innerHTML = !ec? "" : ec.error? `<span class="tag t-red">점검 실패</span><span class="muted">${esc(ec.error)}</span>`
+     : (ec.items||[]).map(i=>`<span class="tag ${i.ok?"t-live":"t-red"}">${esc(i.name)} ${i.ok?"정상":"못 찾음"}</span>`).join("") + `<span class="muted">${when(ec.at)}</span>`;
 
   /* 인기 키워드 */
   const tr=S.trends||{}, cats=tr.cats||[];

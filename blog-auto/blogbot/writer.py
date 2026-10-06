@@ -9,7 +9,7 @@ import datetime as dt
 import random
 from pathlib import Path
 
-from . import ai, config, db, illustrations, prompts, style, text, trends
+from . import ai, checks, config, db, illustrations, prompts, style, text, trends
 from . import photos as moodpics
 from .log import log
 from .naver import StopError, Writer, fmt
@@ -153,6 +153,27 @@ def _proofread(title: str, sections: list[str]) -> tuple[str, list[str]]:
         return title, sections
 
 
+def _draft(s: str, u: str, fallback_title: str, check) -> tuple[dict, str, list[str]]:
+    """초안 → 말투 다듬기 → 오타 교정 → 발행 전 검사. 기준 미달이면 이유를 알려주며 한 번 더 쓰고, 그래도 안 되면 발행하지 않음."""
+    extra = ""
+    fatal: list[str] = []
+    for attempt in (1, 2):
+        data = ai.generate_json(s + extra, u, lambda d: isinstance(d.get("sections"), list) and len(d["sections"]) >= 5)
+        title = text.clean_for_editor(str(data.get("title") or fallback_title)).strip()
+        title, raw = _proofread(title, [str(x) for x in _polish(data["sections"])])
+        title = text.clean_for_editor(title).strip()
+        sections = text.tidy(raw)
+        fatal, warn = check(title, sections)
+        for x in warn:
+            log(f"   ⚠️ 검사: {x}")
+        if not fatal:
+            log("   ✅ 발행 전 검사 통과")
+            return data, title, sections
+        log(f"   🚧 발행 전 검사 미달 ({attempt}/2): " + "; ".join(fatal))
+        extra = "\n\n[이전 초안에서 발견된 문제 — 이번에는 반드시 고칠 것]\n- " + "\n- ".join(fatal)
+    raise StopError("발행 전 검사를 통과하지 못해서 올리지 않았어요: " + "; ".join(fatal))
+
+
 def pick_topic() -> str:
     used = [r["title"] for r in db.q("SELECT title FROM posts WHERE title IS NOT NULL ORDER BY id DESC LIMIT 40")]
     prods = [r["product_name"] for r in db.q(
@@ -172,11 +193,7 @@ def write_info(pid: int, per_day: int, mode: str = "schedule", account: int = 1)
 
     s, u = prompts.info(topic)
     s += style.block()          # 주인이 고친 글에서 배운 말투
-    data = ai.generate_json(s, u, lambda d: isinstance(d.get("sections"), list) and len(d["sections"]) >= 5)
-    title = text.clean_for_editor(str(data.get("title") or topic)).strip()
-    title, raw = _proofread(title, [str(x) for x in _polish(data["sections"])])
-    title = text.clean_for_editor(title).strip()
-    sections = text.tidy(raw)
+    data, title, sections = _draft(s, u, topic, checks.info)
     tags = text.tags(data.get("hashtags"))
     st = data.get("strategy") or {}
     if st:
@@ -233,11 +250,7 @@ def write_shop(pid: int, link_id: int, per_day: int, mode: str = "schedule", acc
         memo = link.get("memo") or ""
         s, u = prompts.shop(p, memo)
         s += style.block()
-        data = ai.generate_json(s, u, lambda d: isinstance(d.get("sections"), list) and len(d["sections"]) >= 5)
-        title = text.clean_for_editor(str(data.get("title") or p["name"])).strip()
-        title, raw = _proofread(title, [str(x) for x in _polish(data["sections"])])
-        title = text.clean_for_editor(title).strip()
-        sections = text.tidy(raw)
+        data, title, sections = _draft(s, u, p["name"], lambda t, sec: checks.shop(t, sec, p, bool(memo.strip())))
         if any("[구매링크]" in x for x in sections):
             sections = [x.replace("[구매링크]", link["url"]) for x in sections]
         else:

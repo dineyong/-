@@ -65,7 +65,7 @@ def state() -> dict:
         "style": style.get(),
         "update": updater.get(),
         "sc": shopconnect.get(), "sc_ready": bool(accounts.get(1)["sc_base"]),
-        "trends": trends.get(), "trend_cats": trends.CATS, "recon": scheduler.state.get("recon"),
+        "trends": trends.get(), "trend_cats": trends.CATS, "recon": scheduler.state.get("recon"), "editorcheck": scheduler.state.get("editorcheck"),
         "old_project": str(old_project() or ""),
         "home": str(config.HOME),
     }
@@ -235,6 +235,8 @@ def handle(path: str, body: dict) -> dict:
     if path == "/api/recon":
         kw = (body.get("keyword") or "").strip() or (trends.hints(1) or ["물티슈"])[0]
         return {"ok": True, "msg": scheduler.run_recon(kw)}
+    if path == "/api/editor_check":
+        return {"ok": True, "msg": scheduler.run_editor_check(int(body.get("account") or 1))}
     if path == "/api/open_recon":
         os.system(f'open "{config.HOME / "recon"}" >/dev/null 2>&1 &')
         return {"ok": True}

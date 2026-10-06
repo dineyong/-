@@ -1,26 +1,27 @@
 {
- "version": "1.6.2",
- "notes": "쇼핑 키워드: 다 쓴 키워드는 빼고 6개씩, 다른 키워드 보기, 직접 넣기, 빼기, AI 추천",
+ "version": "1.7.0",
+ "notes": "발행 전 품질 검사(상품명·금액·체험 표현), 글쓰기 화면 점검",
  "files": {
-  "blogbot/__init__.py": "dcc410a5241e6b7a48f095483a4cc81a55e1f180447d34abfd1fa9147ac0b56b",
+  "blogbot/__init__.py": "78848b3baa4c0edf99d500a82edc359a0a5ad3dd7d066b7f52316fa4672c8a7c",
   "blogbot/__main__.py": "d93ce8f71095dc4c43cf39b98672e3296bd8cd623a32719b8799d69b87ff4c50",
   "blogbot/accounts.py": "2d8d9a297a172c229b429dcf96d814570a2b6f0a2ff073a7a54c98aeba949fcb",
   "blogbot/ai.py": "626f3f40a6534c8d5f27b61893b1310ae00d260d69dce018197a0924f94a1d8a",
+  "blogbot/checks.py": "62502e8135927f8957724aa1e6ddc3631e2aeb2329c4bb8ad8f121b448d3b046",
   "blogbot/config.py": "3458df4ad6fdbbdf1c85da77ef827126b15f01ec8aca6b914d88e766e166e0ae",
   "blogbot/db.py": "2ea054305e1977c731c6064ee0484869ba46ffe64789c28ab2c60d1810dc490a",
   "blogbot/illustrations.py": "04b000a13e939556cf3fd3dd8331b36ef87defaa102f80fa44c1ae879a8238d1",
   "blogbot/log.py": "38aec39ea1f2f364ca8b0876dc66d2dea14e293d17ed73c442a79b330ea16b19",
-  "blogbot/naver.py": "818ac48d5c8712815786c97aa8705d819277b0232016fa1ba2dcdcd5b4b368ef",
+  "blogbot/naver.py": "4379e79f6cf68804172b598b05a579cb7f6ce9ea9d6cf1fea199cc2e33c38eb4",
   "blogbot/photos.py": "8a1a89cdf1a404b6f7090bf1c7a7e3305c67d98dc05244672f5347c8f251730f",
   "blogbot/prompts.py": "725713ba9d033521e93eb2d5f9e53c90d420777eb3fe3135241c0b550a6d4b19",
-  "blogbot/scheduler.py": "f65f92fee043337024995b6b2d66edd11376c02d4720428600212ff529be40d3",
-  "blogbot/server.py": "ddaeec20ec25a142e4f5395c3947a0860004f87b4833cb841384d87f53a06277",
+  "blogbot/scheduler.py": "c5804086e0f083ef9b2f224fc50d53e363a112e9cff1a3339074047a8f47c6e4",
+  "blogbot/server.py": "e8e8669b2f745eb4a1c6391553897123d2a839e27e334659189b633fc871e764",
   "blogbot/shopconnect.py": "55993860fe397ba9ed06bed35c86f82b274d8e46c1f6fc36f081cbe541b69008",
   "blogbot/style.py": "d435f4311203b5ca133a3231c349ee509f48d530428b389d8c1a2160c4f5cc5b",
   "blogbot/text.py": "2e5e18ef669971b83457b7c94c0af7df250f5b56b4e88f4c652118887914f1dd",
   "blogbot/trends.py": "18facfc82bee943dd41ebd798c9e5b58d6332cede75c354febdb773a9ad09872",
   "blogbot/updater.py": "651a8112691166207085e1f3796182860538a4a79c5a601765ecd75c6da2bf78",
-  "blogbot/web/index.html": "c7080196e4caae35f562c69942eb3dd8d9d3992267105c82c0768b0ff9d5f939",
-  "blogbot/writer.py": "5cad3d0c0337b5ac4f04b52c78c1ca7e922f2e88d265cec4f4a6092ee04b0920"
+  "blogbot/web/index.html": "1b732195611d31ee6f42c348199d99550b5838131744b997e4405f7d5bbbbeaa",
+  "blogbot/writer.py": "a634af01d829abd129acad85a3bb3489d681b5fa9019738622f969b62955072b"
  }
 }
