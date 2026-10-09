@@ -43,6 +43,13 @@ DEFAULTS: dict[str, str] = {
     "PEXELS_API_KEY": "",
     "PIXABAY_API_KEY": "",
     "PHOTO_MODE": "auto",
+    # ChatGPT(OpenAI) 이미지 모델 — 키가 있으면 AI 사진을 OpenAI로 먼저 만듦 (없으면 Gemini만)
+    "OPENAI_API_KEY": "",
+    "OPENAI_IMAGE_MODELS": "gpt-image-1.5,gpt-image-1",
+    # 만든 AI 사진을 한 번 더 보고 AI 티 나면 다시 만들기 (off 면 건너뜀)
+    "PHOTO_CHECK": "on",
+    # 카드 모양: clean = 깔끔한 정보형 카드, hand = 예전 손그림 카드
+    "CARD_STYLE": "clean",
     # 다 쓴 초안을 한 번 더 읽고 AI 티 나는 표현 다듬기 (off 면 건너뜀)
     "POLISH": "on",
     "IMAGE_WIDTH": "480",
@@ -57,6 +64,7 @@ EDITABLE = {
     "GEMINI_API_KEY": "Gemini API 키",
     "PEXELS_API_KEY": "Pexels API 키 (무료 스톡 사진, 선택)",
     "PIXABAY_API_KEY": "Pixabay API 키 (무료 스톡 사진, 선택)",
+    "OPENAI_API_KEY": "ChatGPT(OpenAI) API 키 (AI 사진, 선택)",
     "BLOG_TOPIC": "정보글 주제 범위",
     "FTC_DISCLOSURE": "공정위 문구 (쇼핑글 맨 위)",
 }

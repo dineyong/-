@@ -614,9 +614,12 @@ def render(context, spec: dict, out_dir: Path, kind: str, card_px: int = 480, th
     """playwright 브라우저 context에서 SVG를 PNG로 찍는다. {이름: 파일경로}"""
     out_dir.mkdir(parents=True, exist_ok=True)
     result: dict = {}
+    from . import cards, config                     # cards 가 이 파일을 import 해서 여기서 불러옴
+    clean = config.get("CARD_STYLE").strip().lower() != "hand"
+    jobs = (cards.build_jobs if clean else build_jobs)(spec, kind, card_px, thumb_px)
     page = context.new_page()
     try:
-        for key, svg, px in build_jobs(spec, kind, card_px, thumb_px):
+        for key, svg, px in jobs:
             try:
                 sized = svg.replace(f'width="{W}" height="{W}"', f'width="{px}" height="{px}"', 1)
                 page.set_viewport_size({"width": px, "height": px})
