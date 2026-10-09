@@ -1,8 +1,8 @@
-"""글 분위기 사진 — AI 생성(Gemini 이미지) 또는 무료 스톡(Pexels·Pixabay) 중 주제에 더 맞는 쪽.
+"""글 분위기 사진 — AI 생성(OpenAI·Gemini 이미지) 또는 무료 스톡(Pexels·Pixabay) 중 주제에 더 맞는 쪽.
 
 - 글 AI가 visual.photos 에 사진마다 source("ai"/"stock"), 영어 검색어(query), 영어 장면 설명(prompt)을 준다
 - stock: 키가 있는 스톡 사이트에서 후보를 모아 Gemini가 사진을 직접 보고 가장 잘 맞는 한 장을 고름 (없으면 AI로)
-- ai: Gemini 이미지 모델로 생성 (실패하면 스톡으로)
+- ai: OpenAI(키가 있을 때) 또는 Gemini 이미지 모델로 생성, AI 티가 나면 한 번 더 (실패하면 스톡으로)
 - 둘 다 안 되면 None → 기존 손그림 장면이 대신 들어감
 - 상품 자체나 '사용하는 척' 하는 장면은 만들지 않는다 (가짜 사용 사진 금지 원칙)
 """
@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import json
+import random
 import time
 import urllib.error
 import urllib.parse
@@ -19,12 +20,22 @@ from pathlib import Path
 from . import config
 from .log import log
 
+OPENAI_API = "https://api.openai.com/v1/images/generations"
 GEN_API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 UA = "blogbot (+https://github.com/dineyong/-)"
 
-AI_STYLE = ("Natural lifestyle photograph taken in an ordinary Korean home, soft daylight from a window, "
-            "slightly imperfect and lived-in, shot on a phone camera at eye level, realistic colors, shallow depth of field. "
-            "No text, no letters, no logos, no brand names, no watermark, no people's faces (hands are fine).")
+# 글마다 같은 느낌이 반복되지 않게 분위기·구도를 여러 개 두고 한 장마다 하나씩 고른다
+LOOKS = [
+    "soft morning daylight from a window, eye-level phone snapshot",
+    "warm late-afternoon light with long soft shadows, slightly angled shot",
+    "bright overcast daylight, even soft light, top-down view",
+    "cozy evening indoor lamp light, warm tones, close-up with blurry background",
+    "clean midday light, wide shot showing the whole space",
+    "cool early-morning light, quiet mood, shot from a low angle",
+]
+AI_BASE = ("Natural, candid photo of an ordinary Korean home or neighborhood, lived-in and slightly imperfect, "
+           "realistic colors and textures like a real phone photo, not a polished ad or 3D render. "
+           "No text, no letters, no logos, no brand names, no watermark, no people's faces (hands are fine).")
 
 
 def _req(url: str, data: dict | None = None, headers: dict | None = None, timeout: int = 60) -> bytes:
@@ -49,13 +60,10 @@ def _parts(data: dict) -> list:
 # ─────────────────────────────────────────────
 # AI 생성
 # ─────────────────────────────────────────────
-def generate(prompt: str, out_dir: Path, name: str, shop: bool = False) -> str | None:
+def _gemini_image(text: str) -> tuple[bytes, str, str] | None:
     key = config.get("GEMINI_API_KEY").strip()
-    if not key or not prompt:
+    if not key:
         return None
-    rule = (" Do not show any product, package or device being sold; show only the everyday situation or place."
-            if shop else "")
-    text = f"{prompt.strip()}\n\nStyle: {AI_STYLE}{rule}"
     models = [m.strip() for m in config.get("GEMINI_IMAGE_MODELS").split(",") if m.strip()]
     for model in models:
         for modal in (["IMAGE"], ["TEXT", "IMAGE"]):     # 이미지만 받는 걸 못 하는 모델이 있음
@@ -75,11 +83,82 @@ def generate(prompt: str, out_dir: Path, name: str, shop: bool = False) -> str |
                 inline = p.get("inlineData") or p.get("inline_data")
                 if inline and inline.get("data"):
                     mime = inline.get("mimeType") or inline.get("mime_type") or "image/png"
-                    path = _save(base64.b64decode(inline["data"]), out_dir, name, "png" if "png" in mime else "jpg")
-                    log(f"   🖼️ AI 사진 생성: {name} ({model})")
-                    return path
+                    return base64.b64decode(inline["data"]), "png" if "png" in mime else "jpg", model
             log(f"   ↪️ 이미지 모델 {model}가 그림을 안 줌 → 다음")
             break
+    return None
+
+
+def _openai_image(text: str) -> tuple[bytes, str, str] | None:
+    """ChatGPT(OpenAI) 이미지 모델 — 설정에 OpenAI 키가 있을 때만."""
+    key = config.get("OPENAI_API_KEY").strip()
+    if not key:
+        return None
+    models = [m.strip() for m in config.get("OPENAI_IMAGE_MODELS").split(",") if m.strip()]
+    for model in models:
+        body = {"model": model, "prompt": text[:3800], "size": "1536x1024", "quality": "medium",
+                "output_format": "jpeg", "n": 1}
+        try:
+            data = json.loads(_req(OPENAI_API, body, {"Authorization": f"Bearer {key}"}, 240))
+        except urllib.error.HTTPError as e:
+            log(f"   ↪️ OpenAI 이미지 모델 {model} 실패({e.code}) → 다음")
+            continue
+        except Exception as e:  # noqa: BLE001
+            log(f"   ↪️ OpenAI 이미지 모델 {model} 실패({e}) → 다음")
+            continue
+        b64 = ((data.get("data") or [{}])[0] or {}).get("b64_json")
+        if b64:
+            return base64.b64decode(b64), "jpg", model
+        log(f"   ↪️ OpenAI 이미지 모델 {model}가 그림을 안 줌 → 다음")
+    return None
+
+
+def _looks_real(raw: bytes, ext: str, want: str) -> bool:
+    """Gemini가 만든 사진을 다시 보고 AI 티(이상한 손·깨진 글자·너무 매끈함)가 나는지 확인. 확인 못 하면 통과."""
+    key = config.get("GEMINI_API_KEY").strip()
+    if not key or config.get("PHOTO_CHECK").strip().lower() == "off":
+        return True
+    body = {"contents": [{"role": "user", "parts": [
+        {"text": f"블로그에 넣을 사진이에요. 원하는 장면: {want}\n"
+                 "실제 사람이 폰으로 찍은 사진처럼 자연스러운지 보세요. 아래 중 하나라도 있으면 bad:\n"
+                 "- 손가락·사물 모양이 뒤틀리거나 녹아내린 부분\n- 읽을 수 있거나 깨진 글자·로고·워터마크\n"
+                 "- 광고나 3D 렌더처럼 지나치게 매끈하고 완벽한 느낌\n- 원하는 장면과 상관없는 내용\n"
+                 'JSON만: {"ok": true 또는 false, "why": "짧게"}'},
+        {"inlineData": {"mimeType": "image/png" if ext == "png" else "image/jpeg",
+                        "data": base64.b64encode(raw).decode()}}]}],
+        "generationConfig": {"temperature": 0, "responseMimeType": "application/json"}}
+    try:
+        data = json.loads(_req(GEN_API.format(model=config.get("GEMINI_MODEL")), body, {"x-goog-api-key": key}, 120))
+        res = json.loads("".join(p.get("text", "") for p in _parts(data) if not p.get("thought")))
+    except Exception as e:  # noqa: BLE001
+        log(f"   ⚠️ 사진 검사 건너뜀: {e}")
+        return True
+    if res.get("ok") is False:
+        log(f"   ↪️ AI 티가 나서 다시 만듦: {str(res.get('why') or '')[:60]}")
+        return False
+    return True
+
+
+def generate(prompt: str, out_dir: Path, name: str, shop: bool = False) -> str | None:
+    """OpenAI 키가 있으면 OpenAI 먼저, 아니면 Gemini. AI 티가 나면 한 번 더 만들고, 그래도 나면 None(스톡·손그림으로)."""
+    if not prompt:
+        return None
+    rule = (" Do not show any product, package or device being sold; show only the everyday situation or place."
+            if shop else "")
+    for _ in range(2):
+        text = f"{prompt.strip()}\n\nStyle: {random.choice(LOOKS)}. {AI_BASE}{rule}"
+        got = None
+        for mk in (_openai_image, _gemini_image):
+            got = mk(text)
+            if got:
+                break
+        if not got:
+            return None
+        raw, ext, model = got
+        if _looks_real(raw, ext, prompt):
+            path = _save(raw, out_dir, name, ext)
+            log(f"   🖼️ AI 사진 생성: {name} ({model})")
+            return path
     return None
 
 
@@ -139,7 +218,7 @@ def stock(query: str, want: str, out_dir: Path, name: str) -> str | None:
     cands: list[dict] = []
     for fn in (_pexels, _pixabay):
         try:
-            cands += fn(query, 4)
+            cands += fn(query, 8)
         except Exception as e:  # noqa: BLE001
             log(f"   ⚠️ 스톡 검색 실패({fn.__name__[1:]}): {e}")
     if not cands:
