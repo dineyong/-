@@ -9,7 +9,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import __version__, accounts, config, db, scheduler, shopconnect, style, trends, updater
+from . import __version__, accounts, comments, config, db, scheduler, shopconnect, style, trends, updater
 from . import log as _logmod
 from .log import RECENT, log
 
@@ -66,6 +66,10 @@ def state() -> dict:
         "update": updater.get(),
         "sc": shopconnect.get(), "sc_ready": bool(accounts.get(1)["sc_base"]),
         "trends": trends.get(), "trend_cats": trends.CATS, "recon": scheduler.state.get("recon"), "editorcheck": scheduler.state.get("editorcheck"),
+        "comments": dict(comments.get(), back=comments.back_list(), max_reply=comments.REPLY_MAX,
+                         max_visit=comments.VISIT_MAX,
+                         today={a["id"]: comments.today_counts(a["id"]) for a in accounts.all()}),
+        "comment_rows": comments.recent(),
         "old_project": str(old_project() or ""),
         "home": str(config.HOME),
     }
@@ -101,6 +105,28 @@ def handle(path: str, body: dict) -> dict:
             return {"ok": False, "msg": "먼저 설정에서 Gemini API 키를 넣어주세요."}
         return {"ok": True, "msg": scheduler.request(body.get("kind"), (body.get("topic") or "").strip() or None,
                                                       body.get("mode"), int(body.get("account") or 1))}
+    if path == "/api/comments":
+        patch = {k: body[k] for k in ("reply_on", "visit_on", "practice", "reply_per_day", "visit_per_day",
+                                      "visit_ids", "visit_back") if k in body}
+        if (patch.get("reply_on") or patch.get("visit_on")) and not config.get("GEMINI_API_KEY"):
+            return {"ok": False, "msg": "먼저 설정에서 Gemini API 키를 넣어주세요."}
+        if (patch.get("reply_on") or patch.get("visit_on")) and not scheduler.usable_accounts():
+            return {"ok": False, "msg": "먼저 설정 › 블로그 계정에서 네이버 로그인을 해주세요."}
+        before = comments.get()
+        s = comments.save(**patch)
+        for k, name in (("reply_on", "내 글 답글"), ("visit_on", "이웃 댓글"), ("practice", "연습 모드")):
+            if k in patch and bool(before[k]) != bool(s[k]):
+                log(f"💬 {name} {'켜짐' if s[k] else '꺼짐'}")
+        if "visit_ids" in patch:
+            return {"ok": True, "msg": f"이웃 {len(comments.visit_ids())}곳을 저장했어요."}
+        return {"ok": True}
+    if path == "/api/comments/run":
+        if not config.get("GEMINI_API_KEY"):
+            return {"ok": False, "msg": "먼저 설정에서 Gemini API 키를 넣어주세요."}
+        return {"ok": True, "msg": scheduler.run_comments(force=True)}
+    if path == "/api/comments/back_remove":
+        db.set_setting("comment_back", [b for b in comments.back_list() if b["id"] != body.get("id")])
+        return {"ok": True}
     if path == "/api/login":
         return {"ok": True, "msg": scheduler.run_login(int(body.get("account") or 1))}
     if path == "/api/batch/start":

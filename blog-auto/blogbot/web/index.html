@@ -240,6 +240,7 @@ details summary{cursor:pointer;color:var(--sub);font-size:13.5px;font-weight:600
       <button data-p="home" class="on"><span class="ic">🏠</span>홈</button>
       <button data-p="posts"><span class="ic">📚</span>글 목록</button>
       <button data-p="shop"><span class="ic">🛍️</span>쇼핑<span class="badge" id="navShop" style="display:none"></span></button>
+      <button data-p="comments"><span class="ic">💬</span>댓글<span class="badge" id="navCmt" style="display:none"></span></button>
       <button data-p="settings"><span class="ic">⚙️</span>설정<span class="badge" id="navSet" style="display:none">!</span></button>
       <button data-p="logs"><span class="ic">🧾</span>기록</button>
     </nav>
@@ -406,6 +407,49 @@ details summary{cursor:pointer;color:var(--sub);font-size:13.5px;font-weight:600
             </div>
           </details>
         </div>
+      </div>
+    </section>
+
+    <!-- ═════════ 댓글 ═════════ -->
+    <section class="page" id="p-comments">
+      <h1>댓글 자동</h1>
+      <p class="lead">내 글에 달린 댓글에 답글을 달고, 이웃 블로그 새 글에 댓글을 남겨요. 9시~22시 사이 1시간쯤마다 확인해요.</p>
+      <div class="notice" id="cmtWarn">네이버는 짧은 시간에 댓글을 많이 다는 계정을 스팸으로 보고 제한할 수 있어요. 처음엔 연습 모드로 무엇을 다는지 확인하고, 이웃 댓글은 하루 3개 정도로 적게 시작하세요.</div>
+      <div class="panel" style="margin-bottom:16px">
+        <div class="setrow">
+          <div style="flex:1;min-width:240px">
+            <div class="big">🧪 연습 모드</div>
+            <div class="muted">켜져 있으면 실제로는 안 달고, 무엇을 달지 아래 기록에만 남겨요. 괜찮으면 끄세요.</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="cmtPractice" onchange="cmtSave({practice:this.checked})"><span></span></label>
+        </div>
+        <div class="row" style="margin-top:12px"><button class="btn" onclick="post('/api/comments/run')">지금 한 번 확인</button>
+          <span class="muted" id="cmtMsg"></span></div>
+      </div>
+      <div class="grid2">
+        <div class="panel">
+          <h2>내 글 답글 <span class="spacer"></span><label class="switch"><input type="checkbox" id="cmtReply" onchange="cmtToggle('reply_on',this)"><span></span></label></h2>
+          <p class="desc">최근 글 8편에 달린 댓글(7일 안)에 AI가 짧게 답글을 달아요. 비밀 댓글·광고·이미 답글 단 댓글은 건너뛰어요.</p>
+          <label>계정마다 하루 최대</label>
+          <select id="cmtReplyN" onchange="cmtSave({reply_per_day:+this.value})"></select>
+          <div class="muted" id="cmtReplyToday" style="margin-top:8px"></div>
+        </div>
+        <div class="panel">
+          <h2>이웃 댓글 <span class="spacer"></span><label class="switch"><input type="checkbox" id="cmtVisit" onchange="cmtToggle('visit_on',this)"><span></span></label></h2>
+          <p class="desc">아래 이웃 블로그의 3일 안 새 글을 읽고 댓글 1개를 남겨요. 한 번에 1개, 같은 블로그엔 하루 1개만요.</p>
+          <label>계정마다 하루 최대</label>
+          <select id="cmtVisitN" onchange="cmtSave({visit_per_day:+this.value})"></select>
+          <label>이웃 블로그 <span style="font-weight:400">(아이디나 주소, 한 줄에 하나)</span></label>
+          <textarea id="cmtIds" rows="4" placeholder="예: blog.naver.com/abc123"></textarea>
+          <div class="row" style="margin-top:8px"><button class="btn sm" onclick="cmtSave({visit_ids:$('cmtIds').value}).then(()=>{cmtDrawn=false})">저장</button>
+            <label style="margin:0;display:flex;gap:6px;align-items:center;font-weight:500"><input type="checkbox" id="cmtBack" onchange="cmtSave({visit_back:this.checked})" style="width:auto">내 글에 댓글 단 사람도 방문 (답방)</label></div>
+          <div class="muted" id="cmtBackList" style="margin-top:8px"></div>
+          <div class="muted" id="cmtVisitToday" style="margin-top:8px"></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px">
+        <h2>최근 댓글 기록</h2>
+        <table><thead><tr><th>종류</th><th>어디에</th><th>내용</th><th>상태</th></tr></thead><tbody id="cmtRows"></tbody></table>
       </div>
     </section>
 
@@ -607,6 +651,39 @@ function drawTodo(){
   $("navSet").style.display = (!S.settings.GEMINI_API_KEY || (S.accounts||[]).some(x=>!x.blog_id||!x.logged_in||x.login_bad))? "" : "none";
 }
 
+/* 댓글 */
+let cmtDrawn=false;
+function cmtSave(b){ return post("/api/comments", b); }
+function cmtToggle(k, el){
+  if(el.checked && k==="visit_on" && !confirm("이웃 블로그에 자동으로 댓글을 달아요. 너무 많으면 네이버가 계정을 제한할 수 있어요. 켤까요?")){ el.checked=false; return; }
+  cmtSave({[k]: el.checked}).then(j=>{ if(j&&!j.ok) el.checked=false; });
+}
+function drawComments(){
+  const c=S.comments||{}; if(!c.max_reply) return;
+  $("cmtPractice").checked=!!c.practice; $("cmtReply").checked=!!c.reply_on; $("cmtVisit").checked=!!c.visit_on; $("cmtBack").checked=!!c.visit_back;
+  if(!cmtDrawn){
+    $("cmtReplyN").innerHTML=[3,5,10,15,20,30].filter(n=>n<=c.max_reply).map(n=>`<option>${n}</option>`).join("");
+    $("cmtVisitN").innerHTML=[1,2,3,5,7,10].filter(n=>n<=c.max_visit).map(n=>`<option>${n}</option>`).join("");
+    $("cmtIds").value=c.visit_ids||""; cmtDrawn=true;
+  }
+  $("cmtReplyN").value=c.reply_per_day; $("cmtVisitN").value=c.visit_per_day;
+  $("cmtMsg").textContent=c.message||"";
+  const td=(k)=>(S.accounts||[]).map(a=>`${multi()?a.label+" ":"오늘 "}${((c.today||{})[a.id]||{})[k]||0}개`).join(" · ");
+  $("cmtReplyToday").textContent="달았어요: "+td("reply"); $("cmtVisitToday").textContent="달았어요: "+td("visit");
+  const back=c.back||[];
+  $("cmtBackList").innerHTML = c.visit_back && back.length? "답방 후보: "+back.slice(0,15).map(b=>`<span class="tag t-grey" title="${esc(b.id)}">${esc(b.nick||b.id)} <a href="#" onclick="post('/api/comments/back_remove',{id:'${esc(b.id)}'});return false">✕</a></span>`).join(" ") : "";
+  const st={DONE:["t-live","달았음"],PRACTICE:["t-blue","연습"],SKIP:["t-grey","건너뜀"],FAILED:["t-red","실패"]};
+  const rows=S.comment_rows||[];
+  $("cmtRows").innerHTML = rows.length? rows.map(r=>{ const t=st[r.status]||["t-grey",r.status]; return `<tr>
+    <td class="kind" style="white-space:nowrap">${r.kind==="reply"?"답글":"이웃"}${accLabel(r.account)}<div class="note">${when(r.created_at)}</div></td>
+    <td style="font-size:13.5px">${r.post_url?`<a href="${esc(r.post_url)}" target="_blank">${esc(r.post_title||r.post_url)}</a>`:esc(r.post_title||"")}${r.who?`<div class="note">${esc(r.who)}</div>`:""}</td>
+    <td style="font-size:13.5px">${r.kind==="reply"&&r.their_text?`<div class="note">“${esc(r.their_text.slice(0,80))}”</div>`:""}${r.my_text?`→ ${esc(r.my_text)}`:""}${r.error?`<div class="note">${esc(r.error)}</div>`:""}</td>
+    <td><span class="tag ${t[0]}">${t[1]}</span></td></tr>`; }).join("")
+    : `<tr><td colspan="4" class="muted" style="padding:20px 8px">아직 기록이 없어요. [지금 한 번 확인]을 누르면 연습으로 한 번 해봐요.</td></tr>`;
+  const on=c.reply_on||c.visit_on;
+  $("navCmt").style.display = on? "" : "none"; $("navCmt").textContent = c.practice? "연습" : "켜짐";
+}
+
 function render(){
   if(firstVersion===null) firstVersion=S.version;
   else if(S.version!==firstVersion){ location.reload(); return; }
@@ -620,7 +697,7 @@ function render(){
   $("verM").textContent=`v${S.version}`;
   $("blogName").textContent = multi()? `블로그 ${S.accounts.length}개` : (acc(1).blog_id? `blog.naver.com/${acc(1).blog_id}` : "네이버 블로그");
 
-  drawHero(); drawTimeline(); drawTodo();
+  drawHero(); drawTimeline(); drawTodo(); drawComments();
   $("enabled").checked=!!a.enabled;
   $("per_day").value=a.per_day; $("days_ahead").value=a.days_ahead;
   const now=a.mode==="now";

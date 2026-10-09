@@ -16,7 +16,7 @@ import threading
 import time
 import zlib
 
-from . import accounts, ai, db, naver, shopconnect, style, trends, writer
+from . import accounts, ai, comments, db, naver, shopconnect, style, trends, writer
 from .log import log
 
 KEY = "auto"
@@ -264,6 +264,22 @@ def run_editor_check(account: int = 1) -> str:
     return "글쓰기 화면을 열어 점검할게요 (글은 쓰지 않아요, 1분 정도)."
 
 
+def run_comments(force: bool = False) -> str:
+    """댓글 자동 한 번 (내 글 답글 + 이웃 댓글). 글쓰기와 같은 일꾼 스레드라 겹치지 않음."""
+    def job():
+        state["current"] = "댓글 확인 중"
+        try:
+            comments.run(usable_accounts(), on_login_bad=_mark_login_bad, force=force)
+        except Exception as e:  # noqa: BLE001
+            log(f"⚠️ 댓글 확인 오류: {e}")
+        finally:
+            state["current"] = None
+    if busy.locked() or not _jobs.empty():
+        return "다른 작업 중이에요. 끝나면 다시 눌러주세요."
+    _jobs.put((job,))
+    return "댓글을 확인하고 있어요. 로봇 브라우저는 닫지 말아주세요."
+
+
 def run_login(account: int = 1):
     def job():
         state["current"] = f"[{accounts.get(account)['label']}] 네이버 로그인 창 열림"
@@ -448,6 +464,11 @@ def _loop():
                 log(f"[자동] {r}")
         except Exception as e:  # noqa: BLE001
             log(f"[자동] 확인 중 오류: {e}")
+        try:
+            if comments.due() and not busy.locked() and _jobs.empty() and usable_accounts():
+                run_comments()             # 켜져 있으면 1시간쯤마다 (9~22시)
+        except Exception as e:  # noqa: BLE001
+            log(f"💬 댓글 예약 오류: {e}")
         try:
             style.check()                  # 6시간마다: 공개된 글과 초안 비교 → 말투 메모 갱신
         except Exception as e:  # noqa: BLE001
