@@ -1,12 +1,12 @@
 """자동 작성 — 프로그램이 켜져 있는 동안 10분마다 확인.
 
 - 앞으로 예약된 글이 (하루 개수 × 며칠치)보다 적으면 1편 써서 예약
-- 비율: 정보글 3편마다 쇼핑글 1편 (쇼핑 링크 대기열에 링크가 있을 때만, 없으면 정보글)
+- 비율: 정보 3 : 쇼핑 1 또는 정보 2 : 쇼핑 2 (대시보드에서 고름, ratio 3 / 1) (쇼핑 링크 대기열에 링크가 있을 때만, 없으면 정보글)
 - 인터넷 끊김은 실패로 세지 않고 다음 확인 때 다시
 - 켠 뒤로 연속 3번 실패하면 스스로 꺼짐 (로그인 풀림 등)
 - 대시보드의 "지금 1편 쓰기"도 같은 일꾼 스레드가 처리 (동시에 두 편 안 씀)
 - 블로그 계정 여러 개(최대 3): 계정마다 따로 목표·비율·링크 대기열, 1번 → 2번 → 3번 순서로 채움
-- [시작]: 켜진 계정마다 정보글 3편 + 쇼핑글 1편을 차례로 써서 예약 (한 세트)
+- [시작]: 켜진 계정마다 한 세트 4편 (정보 3 + 쇼핑 1, 또는 정보·쇼핑 번갈아 2편씩)을 차례로 써서 예약
 """
 from __future__ import annotations
 
@@ -34,6 +34,7 @@ state = {"current": None, "next_check": None, "recon": None,
 def get() -> dict:
     s = dict(DEFAULT)
     s.update(db.setting(KEY, {}) or {})
+    s["ratio"] = 1 if int(s["ratio"]) <= 1 else 3
     return s
 
 
@@ -44,7 +45,7 @@ def save(**patch) -> dict:
     s.update(patch)
     s["per_day"] = min(max(int(s["per_day"]), 1), 3)
     s["days_ahead"] = min(max(int(s["days_ahead"]), 1), 7)
-    s["ratio"] = min(max(int(s["ratio"]), 1), 10)
+    s["ratio"] = 1 if int(s["ratio"]) <= 1 else 3      # 3 = 정보 3 : 쇼핑 1, 1 = 정보 2 : 쇼핑 2
     s["mode"] = "now" if s.get("mode") == "now" else "schedule"
     db.set_setting(KEY, s)
     return s
@@ -294,9 +295,14 @@ def run_login(account: int = 1):
 
 
 # ─────────────────────────────────────────────
-# [시작] 한 세트 — 켜진 계정마다 정보글 3편 + 쇼핑글 1편 (모두 예약 발행)
+# [시작] 한 세트 — 켜진 계정마다 4편 (비율 설정대로, 모두 예약 발행)
 # ─────────────────────────────────────────────
-SET_PLAN = ["info", "info", "info", "shop"]
+def set_plan() -> list[str]:
+    return ["info", "shop", "info", "shop"] if get()["ratio"] == 1 else ["info", "info", "info", "shop"]
+
+
+def plan_text() -> str:
+    return "정보글 2편 + 쇼핑글 2편" if get()["ratio"] == 1 else "정보글 3편 + 쇼핑글 1편"
 
 
 def start_batch() -> str:
@@ -305,13 +311,13 @@ def start_batch() -> str:
     accs = usable_accounts()
     if not accs:
         return "쓸 수 있는 계정이 없어요. 설정 › 블로그 계정에서 블로그 아이디와 로그인을 확인해 주세요."
-    items = [{"account": a, "kind": k, "status": "대기"} for a in accs for k in SET_PLAN]
+    items = [{"account": a, "kind": k, "status": "대기"} for a in accs for k in set_plan()]
     state["batch"] = {"items": items, "done": 0, "stopped": False, "started": dt.datetime.now().isoformat(timespec="minutes")}
     for i in range(len(items)):
         _jobs.put((_batch_step, i))
     names = " → ".join(accounts.get(a)["label"] for a in accs)
-    log(f"▶️ 시작: {names} — 계정마다 정보글 3편 + 쇼핑글 1편 (예약 발행)")
-    return f"시작했어요. {names} 순서로 정보글 3편 + 쇼핑글 1편씩 써서 예약해요."
+    log(f"▶️ 시작: {names} — 계정마다 {plan_text()} (예약 발행)")
+    return f"시작했어요. {names} 순서로 {plan_text()}씩 써서 예약해요."
 
 
 def stop_batch() -> str:
