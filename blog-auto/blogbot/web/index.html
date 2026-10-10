@@ -267,7 +267,7 @@ details summary{cursor:pointer;color:var(--sub);font-size:13.5px;font-weight:600
         <div class="setrow">
           <div style="flex:1;min-width:240px">
             <div class="big">한 세트 쓰기</div>
-            <div class="muted" id="setDesc">켜진 계정마다 정보글 3편 + 쇼핑글 1편을 차례로 써서 빈 시간에 예약해요. 쇼핑글은 그 계정 대기열의 링크로 써요.</div>
+            <div class="muted" id="setDesc">켜진 계정마다 4편을 차례로 써서 빈 시간에 예약해요. 쇼핑글은 그 계정 대기열의 링크로 써요.</div>
           </div>
           <button class="btn primary" id="setBtn" onclick="startSet()">▶ 시작</button>
         </div>
@@ -298,6 +298,11 @@ details summary{cursor:pointer;color:var(--sub);font-size:13.5px;font-weight:600
               <select id="per_day" onchange="saveAuto()"><option>1</option><option>2</option><option>3</option></select></div>
             <div style="flex:1" id="daysBox"><label>며칠치 미리 예약</label>
               <select id="days_ahead" onchange="saveAuto()"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></div>
+          </div>
+          <label>정보글 : 쇼핑글 비율</label>
+          <div class="seg" id="ratioSeg">
+            <button data-r="3" onclick="setRatio(3)">정보 3 : 쇼핑 1</button>
+            <button data-r="1" onclick="setRatio(1)">정보 2 : 쇼핑 2</button>
           </div>
           <label>다음 글 순서 · 정보글 <span id="ratioN">3</span>편마다 쇼핑글 1편</label>
           <div class="ratio" id="ratio"></div>
@@ -561,8 +566,8 @@ function drawSet(){
   $("setBtn").className = "btn " + (running? "" : "primary");
   const names=(S.accounts||[]).filter(a=>a.enabled&&a.blog_id).map(a=>a.label);
   $("setDesc").textContent = running? `진행 중 ${b.done}/${b.items.length}편${b.stopped?" — 지금 글까지만 쓰고 멈춰요":""}`
-    : (multi()? `${names.join(" → ")} 순서로, 계정마다 정보글 3편 + 쇼핑글 1편을 써서 빈 시간에 예약해요.`
-              : "정보글 3편 + 쇼핑글 1편을 차례로 써서 빈 시간에 예약해요. 쇼핑글은 대기열의 링크로 써요.")
+    : (multi()? `${names.join(" → ")} 순서로, 계정마다 ${planText()}을 써서 빈 시간에 예약해요.`
+              : `${planText()}을 차례로 써서 빈 시간에 예약해요. 쇼핑글은 대기열의 링크로 써요.`)
       + (b && b.finished? ` 지난 세트: ${b.items.filter(x=>x.status==="완료").length}/${b.items.length}편 완료.` : "");
   const cls={"완료":"ok","작성 중":"run","실패":"bad","링크 없음":"skip","멈춤":"skip"};
   $("setProg").innerHTML = b? b.items.map(x=>`<span class="${cls[x.status]||""}">${multi()? esc((acc(x.account)||{}).label)+" ":""}${x.kind==="shop"?"쇼핑":"정보"} · ${esc(x.status)}</span>`).join("") : "";
@@ -707,6 +712,7 @@ function render(){
   $("modeHint").textContent = now ? "오전·오후·저녁 시간대가 오면 그때 써서 바로 올려요. 그 시간에 맥이 켜져 있어야 해요."
                                   : "미리 써서 네이버 예약으로 넣어둬요. 맥이 꺼져 있어도 시간이 되면 공개돼요.";
   $("daysBox").style.display = now ? "none" : "";
+  document.querySelectorAll("#ratioSeg button").forEach(b=>b.classList.toggle("on", +b.dataset.r===a.ratio));
   $("ratioN").textContent=c.ratio; document.querySelectorAll(".ratioN2").forEach(e=>e.textContent=c.ratio);
   let r=""; for(let i=0;i<c.ratio;i++) r+=`<b class="${i<c.info_since_shop?"done":""}">정보 ${i+1}</b>`;
   $("ratio").innerHTML=r+`<b class="shop">쇼핑</b>`;
@@ -837,6 +843,8 @@ async function refresh(){
 function checkUpdate(){ updLocalBusy=Date.now()+4000; if(S) drawUpdate(S.update||{}); post("/api/update/check"); }
 function toggleAuto(on){ post("/api/auto",{enabled:on}).then(j=>{ if(j&&!j.ok) $("enabled").checked=false; }); }
 function saveAuto(){ post("/api/auto",{per_day:+$("per_day").value, days_ahead:+$("days_ahead").value}); }
+function setRatio(r){ post("/api/auto",{ratio:r}); }
+function planText(){ return (S.auto||{}).ratio===1? "정보글 2편 + 쇼핑글 2편" : "정보글 3편 + 쇼핑글 1편"; }
 function setMode(m){ post("/api/auto",{mode:m}); writeMode=m; }
 function setWriteMode(m){ writeMode=m; render(); }
 function writeNow(kind){ post("/api/write",{kind, account: curAcc, mode: writeMode, topic: kind==="info"? $("topic").value : ""}).then(()=>{ $("topic").value=""; }); }
